@@ -72,14 +72,18 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
+      { title: "Score Tracker by CourtsidewithPri" },
+      { name: "description", content: "Padel Point Keeper is a mobile app for tracking padel match scores and unforced errors." },
       { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { property: "og:title", content: "Score Tracker by CourtsidewithPri" },
+      { property: "og:description", content: "Padel Point Keeper is a mobile app for tracking padel match scores and unforced errors." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:site", content: "@Lovable" },
+      { name: "twitter:title", content: "Score Tracker by CourtsidewithPri" },
+      { name: "twitter:description", content: "Padel Point Keeper is a mobile app for tracking padel match scores and unforced errors." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/cc0186bf-512c-48a6-a06f-adbbc655bdb3/id-preview-ddfe1c16--d830c2b0-a3d5-4de6-8b5c-fe48c5eb6b63.lovable.app-1778421995093.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/cc0186bf-512c-48a6-a06f-adbbc655bdb3/id-preview-ddfe1c16--d830c2b0-a3d5-4de6-8b5c-fe48c5eb6b63.lovable.app-1778421995093.png" },
     ],
     links: [
       {
