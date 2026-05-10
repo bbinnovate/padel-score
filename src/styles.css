@@ -48,9 +48,9 @@
   --destructive: oklch(0.65 0.22 25);
   --destructive-foreground: oklch(0.98 0.01 240);
 
-  --team-a: oklch(0.78 0.18 200); /* cyan */
+  --team-a: oklch(0.75 0.19 230); /* electric blue */
   --team-a-foreground: oklch(0.12 0.02 240);
-  --team-b: oklch(0.72 0.22 20); /* coral */
+  --team-b: oklch(0.72 0.25 15); /* hot coral-red */
   --team-b-foreground: oklch(0.12 0.02 240);
 }
 
