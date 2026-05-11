@@ -624,6 +624,7 @@ function TeamPanel({
   setsWon,
   unforced,
   disabled,
+  unforcedDisabled,
   onPoint,
   onUnforced,
 }: {
@@ -634,6 +635,7 @@ function TeamPanel({
   setsWon: number;
   unforced: number;
   disabled: boolean;
+  unforcedDisabled?: boolean;
   onPoint: () => void;
   onUnforced: () => void;
 }) {
@@ -641,66 +643,69 @@ function TeamPanel({
     <button
       onClick={onPoint}
       disabled={disabled}
-      className="group relative flex flex-1 flex-col justify-between overflow-hidden rounded-3xl p-5 text-left transition active:scale-[0.99] disabled:opacity-60"
+      className="group relative flex flex-1 flex-col justify-between overflow-hidden rounded-3xl p-6 text-left transition active:scale-[0.99] disabled:opacity-60"
       style={{
-        background: `color-mix(in oklab, var(--${accent}) 22%, var(--card))`,
-        boxShadow: `inset 0 0 0 1px color-mix(in oklab, var(--${accent}) 50%, transparent)`,
+        background: `color-mix(in oklab, var(--${accent}) 28%, var(--card))`,
+        boxShadow: `inset 0 0 0 2px color-mix(in oklab, var(--${accent}) 65%, transparent)`,
       }}
     >
       <div
-        className="absolute inset-x-0 top-0 h-1.5"
+        className="absolute inset-x-0 top-0 h-2"
         style={{ background: `var(--${accent})` }}
       />
       <div
-        className="absolute -right-10 -top-10 size-32 rounded-full opacity-30 blur-2xl"
+        className="absolute -right-10 -top-10 size-40 rounded-full opacity-30 blur-2xl"
         style={{ background: `var(--${accent})` }}
       />
 
       <div className="relative flex items-start justify-between">
         <div>
           <p
-            className="text-xs font-bold uppercase tracking-[0.3em]"
+            className="text-sm font-extrabold uppercase tracking-[0.3em]"
             style={{ color: `var(--${accent})` }}
           >
             {name}
           </p>
-          <div className="mt-1 flex gap-3 text-[10px] uppercase tracking-widest text-muted-foreground">
+          <div className="mt-1.5 flex gap-4 text-xs uppercase tracking-widest text-muted-foreground">
             <span>
-              Sets <span className="score-num text-foreground">{setsWon}</span>
+              Sets <span className="score-num text-base text-foreground">{setsWon}</span>
             </span>
             <span>
-              Games <span className="score-num text-foreground">{games}</span>
+              Games <span className="score-num text-base text-foreground">{games}</span>
             </span>
           </div>
         </div>
       </div>
 
-      <div className="relative flex items-end justify-between">
+      <div className="relative flex items-end justify-between gap-3">
         <p
           className="score-num leading-none"
           style={{
-            fontSize: "clamp(4.5rem, 22vw, 8rem)",
+            fontSize: "clamp(5.5rem, 26vw, 9.5rem)",
             color: `var(--${accent})`,
             textShadow: `0 0 40px color-mix(in oklab, var(--${accent}) 50%, transparent)`,
           }}
         >
           {point}
         </p>
-        <div
+        <button
+          type="button"
           onClick={(e) => {
             e.stopPropagation();
-            if (!disabled) onUnforced();
+            if (!unforcedDisabled) onUnforced();
           }}
-          role="button"
+          disabled={unforcedDisabled}
           aria-label="Add unforced error"
-          className="flex flex-col items-center gap-1 rounded-2xl bg-background/70 px-3 py-2 ring-1 ring-border backdrop-blur active:scale-95 transition"
+          className="flex min-w-[96px] flex-col items-center gap-1 rounded-2xl bg-background/85 px-4 py-3 ring-2 ring-border backdrop-blur transition active:scale-95 disabled:opacity-40 disabled:pointer-events-none"
         >
-          <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
+          <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
             Unforced
           </span>
-          <span className="score-num text-xl text-destructive">{unforced}</span>
-          <span className="text-[10px] font-semibold text-destructive">+ TAP</span>
-        </div>
+          <span className="score-num text-3xl text-destructive">{unforced}</span>
+          <span className="text-xs font-extrabold tracking-wider text-destructive">
+            + TAP
+          </span>
+        </button>
       </div>
     </button>
   );
