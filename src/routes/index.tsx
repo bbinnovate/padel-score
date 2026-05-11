@@ -14,7 +14,7 @@ export const Route = createFileRoute("/")({
   component: Index,
   head: () => ({
     meta: [
-      { title: "Padel Score — Court Tracker" },
+      { title: "Padel · Courtside / withPri" },
       {
         name: "description",
         content:
