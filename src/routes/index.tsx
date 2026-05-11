@@ -403,26 +403,36 @@ function MatchView({
   const currentSetIdx = snapshot.sets.length;
   const currentTimer = setTimes[currentSetIdx];
 
+  const matchStarted =
+    snapshot.points.A > 0 ||
+    snapshot.points.B > 0 ||
+    snapshot.games.A > 0 ||
+    snapshot.games.B > 0 ||
+    snapshot.sets.length > 0;
+
   return (
     <div className="mx-auto flex min-h-dvh max-w-md flex-col">
       {/* Top bar */}
       <div className="flex items-center justify-between gap-2 px-4 pt-4">
-        <div className="flex items-center gap-2 text-[10px] uppercase tracking-widest text-muted-foreground">
-          <span className="size-2 rounded-full bg-primary animate-pulse" />
-          {snapshot.matchOver
-            ? "Match complete"
-            : snapshot.inTiebreak
-              ? "Tiebreak"
-              : `Best of ${cfg.bestOf}`}
+        <div className="flex flex-col gap-0.5">
+          <BrandMark size="sm" />
+          <div className="flex items-center gap-2 text-[10px] uppercase tracking-widest text-muted-foreground">
+            <span className="size-2 rounded-full bg-primary animate-pulse" />
+            {snapshot.matchOver
+              ? "Match complete"
+              : snapshot.inTiebreak
+                ? "Tiebreak"
+                : `Best of ${cfg.bestOf}`}
+          </div>
         </div>
-        <div className="flex gap-1.5">
+        <div className="flex gap-2">
           <IconBtn onClick={onToggleSpeaker} active={speakerOn} label="Speaker">
             {speakerOn ? "🔊" : "🔇"}
           </IconBtn>
           <button
             onClick={onUndo}
             disabled={!canUndo}
-            className="rounded-full bg-muted px-3 py-1.5 text-xs font-semibold text-muted-foreground disabled:opacity-40"
+            className="rounded-full bg-muted px-4 py-2.5 text-sm font-bold text-foreground disabled:opacity-40"
           >
             Undo
           </button>
@@ -430,7 +440,7 @@ function MatchView({
             onClick={() => {
               if (confirm("End match and start over?")) onReset();
             }}
-            className="rounded-full bg-muted px-3 py-1.5 text-xs font-semibold text-muted-foreground"
+            className="rounded-full bg-muted px-4 py-2.5 text-sm font-bold text-foreground"
           >
             New
           </button>
@@ -458,6 +468,7 @@ function MatchView({
           setsWon={snapshot.setsWon.A}
           unforced={snapshot.unforced.A}
           disabled={snapshot.matchOver}
+          unforcedDisabled={!matchStarted || snapshot.matchOver}
           onPoint={() => onPoint("A")}
           onUnforced={() => onUnforced("A")}
         />
@@ -469,6 +480,7 @@ function MatchView({
           setsWon={snapshot.setsWon.B}
           unforced={snapshot.unforced.B}
           disabled={snapshot.matchOver}
+          unforcedDisabled={!matchStarted || snapshot.matchOver}
           onPoint={() => onPoint("B")}
           onUnforced={() => onUnforced("B")}
         />
@@ -492,7 +504,7 @@ function IconBtn({
     <button
       onClick={onClick}
       aria-label={label}
-      className={`grid size-8 place-items-center rounded-full text-sm transition ${
+      className={`grid size-11 place-items-center rounded-full text-lg transition ${
         active
           ? "bg-primary text-primary-foreground"
           : "bg-muted text-muted-foreground"
