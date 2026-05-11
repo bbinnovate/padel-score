@@ -97,18 +97,24 @@ function Index() {
   const [history, setHistory] = useState<Snapshot[]>([initialSnapshot()]);
   const [setTimes, setSetTimes] = useState<SetTime[]>([]);
   const [speakerOn, setSpeakerOn] = useState(true);
+  const [bigMode, setBigMode] = useState(false);
 
   // Hydrate
   useEffect(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) return;
-      const parsed: Stored = JSON.parse(raw);
+      const parsed: Stored & { bigMode?: boolean } = JSON.parse(raw);
       if (parsed?.cfg) {
         setCfg(parsed.cfg);
         setHistory(parsed.history ?? [initialSnapshot()]);
         setSetTimes(parsed.setTimes ?? []);
         setSpeakerOn(parsed.speakerOn ?? true);
+        setBigMode(parsed.bigMode ?? false);
+        setScreen(parsed.screen ?? "match");
+      }
+    } catch {}
+  }, []);
         setScreen(parsed.screen ?? "match");
       }
     } catch {}
