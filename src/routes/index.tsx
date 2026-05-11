@@ -115,17 +115,13 @@ function Index() {
       }
     } catch {}
   }, []);
-        setScreen(parsed.screen ?? "match");
-      }
-    } catch {}
-  }, []);
 
   // Persist
   useEffect(() => {
     if (cfg) {
       localStorage.setItem(
         STORAGE_KEY,
-        JSON.stringify({ cfg, history, setTimes, speakerOn, screen } as Stored),
+        JSON.stringify({ cfg, history, setTimes, speakerOn, screen, bigMode } as Stored & { bigMode: boolean }),
       );
     }
   }, [cfg, history, setTimes, speakerOn, screen]);
