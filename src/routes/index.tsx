@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
+import confetti from "canvas-confetti";
 import {
   addUnforced,
   awardPoint,
@@ -9,6 +10,53 @@ import {
   type Snapshot,
   type TeamId,
 } from "@/lib/padel";
+
+function haptic(pattern: number | number[]) {
+  if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+    try {
+      navigator.vibrate(pattern);
+    } catch {}
+  }
+}
+
+function teamHex(team: TeamId) {
+  return team === "A" ? "#0047FF" : "#DCFF1B";
+}
+
+function celebrateSet(team: TeamId) {
+  const color = teamHex(team);
+  const palette = [color, "#0047FF", "#DCFF1B", "#F4F2EC"];
+  const burst = (x: number) =>
+    confetti({
+      particleCount: 80,
+      spread: 75,
+      startVelocity: 50,
+      origin: { x, y: 0.7 },
+      colors: palette,
+    });
+  burst(0.2);
+  burst(0.8);
+  setTimeout(() => burst(0.5), 180);
+}
+
+function celebrateMatch(team: TeamId) {
+  const color = teamHex(team);
+  const palette = [color, "#0047FF", "#DCFF1B", "#F4F2EC"];
+  confetti({
+    particleCount: 220,
+    spread: 120,
+    startVelocity: 60,
+    origin: { y: 0.55 },
+    colors: palette,
+  });
+  const end = Date.now() + 2200;
+  const frame = () => {
+    confetti({ particleCount: 8, angle: 60, spread: 80, origin: { x: 0, y: 0.85 }, colors: palette });
+    confetti({ particleCount: 8, angle: 120, spread: 80, origin: { x: 1, y: 0.85 }, colors: palette });
+    if (Date.now() < end) requestAnimationFrame(frame);
+  };
+  frame();
+}
 
 export const Route = createFileRoute("/")({
   component: Index,
