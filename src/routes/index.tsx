@@ -170,15 +170,25 @@ function Index() {
       // Voice
       if (speakerOn) speakScore(next, cfg, team);
 
-      // If match over → go to summary
+      // Haptics + celebrations
       if (next.matchOver) {
-        setTimeout(() => setScreen("summary"), 300);
+        haptic([60, 40, 60, 40, 200]);
+        celebrateMatch(next.winner ?? team);
+        setTimeout(() => setScreen("summary"), 1500);
+      } else if (next.sets.length > prev.sets.length) {
+        haptic([40, 30, 80]);
+        celebrateSet(team);
+      } else if (next.games.A > prev.games.A || next.games.B > prev.games.B) {
+        haptic([20, 30, 40]);
+      } else {
+        haptic(25);
       }
       return [...h, next];
     });
   };
 
   const onUnforced = (team: TeamId) => {
+    haptic([10, 20, 10]);
     setHistory((h) => [...h, addUnforced(h[h.length - 1], team)]);
   };
 
