@@ -52,8 +52,10 @@
 
   --team-a: oklch(0.48 0.27 263);       /* blue */
   --team-a-foreground: oklch(0.98 0.005 95);
+  --team-a-ink: oklch(0.42 0.27 263);   /* readable blue text on light card */
   --team-b: oklch(0.95 0.21 113);       /* yellow */
   --team-b-foreground: oklch(0.18 0.04 260);
+  --team-b-ink: oklch(0.32 0.10 100);   /* dark olive ink — high contrast on yellow */
 }
 
 @layer base {
