@@ -599,11 +599,13 @@ function SetTimerCard({
   setIdx,
   onTogglePause,
   disabled,
+  big,
 }: {
   timer: SetTime | undefined;
   setIdx: number;
   onTogglePause: () => void;
   disabled: boolean;
+  big?: boolean;
 }) {
   const [, force] = useState(0);
   useEffect(() => {
@@ -624,15 +626,15 @@ function SetTimerCard({
     <button
       onClick={onTogglePause}
       disabled={disabled || !timer}
-      className="flex flex-col items-start justify-center rounded-2xl bg-card px-3 py-2 text-left ring-1 ring-border disabled:opacity-60"
+      className={`flex flex-col items-start justify-center rounded-2xl bg-card text-left ring-1 ring-border disabled:opacity-60 ${big ? "px-5 py-3" : "px-3 py-2"}`}
     >
-      <span className="text-[9px] uppercase tracking-widest text-muted-foreground">
+      <span className={`uppercase tracking-widest text-muted-foreground ${big ? "text-xs" : "text-[9px]"}`}>
         Set {setIdx + 1} {paused ? "· paused" : timer ? "· live" : ""}
       </span>
-      <span className="score-num text-base">
+      <span className={`score-num ${big ? "text-2xl" : "text-base"}`}>
         {timer ? fmtElapsed(elapsed) : "0:00"}
       </span>
-      <span className="text-[9px] uppercase tracking-widest text-muted-foreground">
+      <span className={`uppercase tracking-widest text-muted-foreground ${big ? "text-[10px]" : "text-[9px]"}`}>
         {!timer ? "Tap a team to start" : paused ? "Tap to resume" : "Tap to pause"}
       </span>
     </button>
@@ -642,9 +644,11 @@ function SetTimerCard({
 function SetStrip({
   snapshot,
   setTimes,
+  big,
 }: {
   snapshot: Snapshot;
   setTimes: SetTime[];
+  big?: boolean;
 }) {
   const cells: Array<{
     a: number | string;
@@ -661,26 +665,26 @@ function SetStrip({
     cells.push({ a: snapshot.games.A, b: snapshot.games.B, live: true });
   }
   return (
-    <div className="flex flex-1 items-center gap-2 overflow-x-auto rounded-2xl bg-card p-2 ring-1 ring-border">
-      <div className="flex flex-col gap-1 pr-1 text-[9px] uppercase tracking-widest">
-        <span style={{ color: "var(--team-a)" }}>A</span>
-        <span style={{ color: "var(--team-b)" }}>B</span>
+    <div className={`flex flex-1 items-center gap-2 overflow-x-auto rounded-2xl bg-card ring-1 ring-border ${big ? "p-3" : "p-2"}`}>
+      <div className={`flex flex-col gap-1 pr-1 uppercase tracking-widest font-extrabold ${big ? "text-sm" : "text-[9px]"}`}>
+        <span style={{ color: "var(--team-a-ink)" }}>A</span>
+        <span style={{ color: "var(--team-b-ink)" }}>B</span>
       </div>
       {cells.map((c, i) => (
         <div
           key={i}
-          className={`flex flex-col items-center rounded-lg px-2 py-1 tabular ${
+          className={`flex flex-col items-center rounded-lg tabular ${big ? "px-3 py-1.5" : "px-2 py-1"} ${
             c.live ? "bg-muted" : ""
           }`}
         >
-          <span className="score-num text-sm" style={{ color: "var(--team-a)" }}>
+          <span className={`score-num ${big ? "text-xl" : "text-sm"}`} style={{ color: "var(--team-a-ink)" }}>
             {c.a}
           </span>
-          <span className="score-num text-sm" style={{ color: "var(--team-b)" }}>
+          <span className={`score-num ${big ? "text-xl" : "text-sm"}`} style={{ color: "var(--team-b-ink)" }}>
             {c.b}
           </span>
           {c.duration && (
-            <span className="text-[8px] text-muted-foreground">{c.duration}</span>
+            <span className={`text-muted-foreground ${big ? "text-[10px]" : "text-[8px]"}`}>{c.duration}</span>
           )}
         </div>
       ))}
@@ -697,6 +701,7 @@ function TeamPanel({
   unforced,
   disabled,
   unforcedDisabled,
+  big,
   onPoint,
   onUnforced,
 }: {
@@ -708,21 +713,23 @@ function TeamPanel({
   unforced: number;
   disabled: boolean;
   unforcedDisabled?: boolean;
+  big?: boolean;
   onPoint: () => void;
   onUnforced: () => void;
 }) {
+  const inkVar = `var(--${accent}-ink)`;
   return (
     <button
       onClick={onPoint}
       disabled={disabled}
-      className="group relative flex flex-1 flex-col justify-between overflow-hidden rounded-3xl p-6 text-left transition active:scale-[0.99] disabled:opacity-60"
+      className={`group relative flex flex-1 flex-col justify-between overflow-hidden rounded-3xl text-left transition active:scale-[0.99] disabled:opacity-60 ${big ? "p-8" : "p-6"}`}
       style={{
-        background: `color-mix(in oklab, var(--${accent}) 28%, var(--card))`,
-        boxShadow: `inset 0 0 0 2px color-mix(in oklab, var(--${accent}) 65%, transparent)`,
+        background: `color-mix(in oklab, var(--${accent}) 32%, var(--card))`,
+        boxShadow: `inset 0 0 0 3px color-mix(in oklab, var(--${accent}) 75%, transparent)`,
       }}
     >
       <div
-        className="absolute inset-x-0 top-0 h-2"
+        className={`absolute inset-x-0 top-0 ${big ? "h-3" : "h-2"}`}
         style={{ background: `var(--${accent})` }}
       />
       <div
@@ -733,17 +740,17 @@ function TeamPanel({
       <div className="relative flex items-start justify-between">
         <div>
           <p
-            className="text-sm font-extrabold uppercase tracking-[0.3em]"
-            style={{ color: `var(--${accent})` }}
+            className={`font-extrabold uppercase tracking-[0.3em] ${big ? "text-xl" : "text-sm"}`}
+            style={{ color: inkVar }}
           >
             {name}
           </p>
-          <div className="mt-1.5 flex gap-4 text-xs uppercase tracking-widest text-muted-foreground">
+          <div className={`mt-1.5 flex gap-4 uppercase tracking-widest text-muted-foreground ${big ? "text-base" : "text-xs"}`}>
             <span>
-              Sets <span className="score-num text-base text-foreground">{setsWon}</span>
+              Sets <span className={`score-num text-foreground ${big ? "text-2xl" : "text-base"}`}>{setsWon}</span>
             </span>
             <span>
-              Games <span className="score-num text-base text-foreground">{games}</span>
+              Games <span className={`score-num text-foreground ${big ? "text-2xl" : "text-base"}`}>{games}</span>
             </span>
           </div>
         </div>
@@ -753,9 +760,11 @@ function TeamPanel({
         <p
           className="score-num leading-none"
           style={{
-            fontSize: "clamp(5.5rem, 26vw, 9.5rem)",
-            color: `var(--${accent})`,
-            textShadow: `0 0 40px color-mix(in oklab, var(--${accent}) 50%, transparent)`,
+            fontSize: big
+              ? "clamp(8rem, 36vw, 14rem)"
+              : "clamp(5.5rem, 26vw, 9.5rem)",
+            color: inkVar,
+            textShadow: `0 0 40px color-mix(in oklab, var(--${accent}) 60%, transparent)`,
           }}
         >
           {point}
@@ -768,13 +777,13 @@ function TeamPanel({
           }}
           disabled={unforcedDisabled}
           aria-label="Add unforced error"
-          className="flex min-w-[96px] flex-col items-center gap-1 rounded-2xl bg-background/85 px-4 py-3 ring-2 ring-border backdrop-blur transition active:scale-95 disabled:opacity-40 disabled:pointer-events-none"
+          className={`flex flex-col items-center gap-1 rounded-2xl bg-background/90 ring-2 ring-border backdrop-blur transition active:scale-95 disabled:opacity-40 disabled:pointer-events-none ${big ? "min-w-[140px] px-5 py-5" : "min-w-[96px] px-4 py-3"}`}
         >
-          <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+          <span className={`font-semibold uppercase tracking-widest text-muted-foreground ${big ? "text-sm" : "text-xs"}`}>
             Unforced
           </span>
-          <span className="score-num text-3xl text-destructive">{unforced}</span>
-          <span className="text-xs font-extrabold tracking-wider text-destructive">
+          <span className={`score-num text-destructive ${big ? "text-5xl" : "text-3xl"}`}>{unforced}</span>
+          <span className={`font-extrabold tracking-wider text-destructive ${big ? "text-sm" : "text-xs"}`}>
             + TAP
           </span>
         </button>
