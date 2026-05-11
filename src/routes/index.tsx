@@ -246,6 +246,8 @@ function Index() {
           setTimes={setTimes}
           speakerOn={speakerOn}
           onToggleSpeaker={() => setSpeakerOn((v) => !v)}
+          bigMode={bigMode}
+          onToggleBig={() => setBigMode((v) => !v)}
           canUndo={history.length > 1}
           onPoint={onPoint}
           onUnforced={onUnforced}
