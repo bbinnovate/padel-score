@@ -244,54 +244,53 @@ function Setup({
   const [speaker, setSpeaker] = useState(initialSpeaker);
 
   return (
-    <div className="mx-auto flex min-h-dvh max-w-md flex-col gap-6 px-5 py-10">
+    <div className="mx-auto flex min-h-dvh max-w-md flex-col gap-6 px-5 py-8">
       <header className="flex items-center justify-between">
-        <div>
-          <p className="text-xs uppercase tracking-[0.25em] text-muted-foreground">
-            Padel · Court Tracker
-          </p>
-          <h1 className="font-display text-3xl font-bold">New match</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Pick a format. Add names later.
-          </p>
-        </div>
-        <div className="size-10 rounded-full bg-primary/20 ring-1 ring-primary/40 grid place-items-center">
-          <span className="size-3 rounded-full bg-primary shadow-[0_0_12px_var(--primary)]" />
+        <BrandMark />
+        <div className="size-12 rounded-full bg-primary/15 ring-1 ring-primary/40 grid place-items-center">
+          <span className="size-3 rounded-full bg-primary shadow-[0_0_14px_var(--primary)]" />
         </div>
       </header>
 
-      <div className="flex flex-col gap-3">
+      <div>
+        <h1 className="font-display text-4xl font-extrabold tracking-tight">New match</h1>
+        <p className="mt-1 text-base text-muted-foreground">
+          Pick a format. Add names later.
+        </p>
+      </div>
+
+      <div className="flex flex-col gap-4">
         <p className="text-xs uppercase tracking-widest text-muted-foreground">
           Format
         </p>
         <button
           onClick={() => onStart(3, golden, speaker)}
-          className="rounded-3xl bg-primary px-6 py-8 text-left text-primary-foreground shadow-[0_8px_30px_-8px_var(--primary)] active:scale-[0.99] transition"
+          className="rounded-3xl bg-primary px-7 py-10 text-left text-primary-foreground shadow-[0_10px_40px_-10px_var(--primary)] active:scale-[0.99] transition"
         >
-          <p className="text-xs font-bold uppercase tracking-[0.25em] opacity-70">
+          <p className="text-xs font-bold uppercase tracking-[0.25em] opacity-80">
             Standard
           </p>
-          <p className="font-display text-3xl font-bold">Best of 3</p>
-          <p className="mt-1 text-sm opacity-80">First to 2 sets wins</p>
+          <p className="font-display text-4xl font-extrabold">Best of 3</p>
+          <p className="mt-1 text-base opacity-90">First to 2 sets wins</p>
         </button>
         <button
           onClick={() => onStart(5, golden, speaker)}
-          className="rounded-3xl bg-card px-6 py-8 text-left ring-1 ring-border active:scale-[0.99] transition"
+          className="rounded-3xl px-7 py-10 text-left active:scale-[0.99] transition"
+          style={{
+            background: "var(--accent)",
+            color: "var(--accent-foreground)",
+            boxShadow: "0 10px 40px -10px var(--accent)",
+          }}
         >
-          <p
-            className="text-xs font-bold uppercase tracking-[0.25em]"
-            style={{ color: "var(--accent)" }}
-          >
+          <p className="text-xs font-bold uppercase tracking-[0.25em] opacity-80">
             Long
           </p>
-          <p className="font-display text-3xl font-bold">Best of 5</p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            First to 3 sets wins
-          </p>
+          <p className="font-display text-4xl font-extrabold">Best of 5</p>
+          <p className="mt-1 text-base opacity-90">First to 3 sets wins</p>
         </button>
       </div>
 
-      <div className="rounded-2xl bg-card p-2">
+      <div className="rounded-2xl bg-card p-2 ring-1 ring-border">
         <ToggleRow
           label="Golden Point"
           desc="Sudden death at deuce"
@@ -308,6 +307,31 @@ function Setup({
 
       <p className="mt-auto text-center text-xs text-muted-foreground">
         Stick the phone on the wall. Tap a team panel to score.
+      </p>
+    </div>
+  );
+}
+
+function BrandMark({ size = "md" }: { size?: "sm" | "md" }) {
+  const big = size === "md";
+  return (
+    <div className={big ? "leading-tight" : "leading-tight text-sm"}>
+      <p
+        className="brand-wordmark"
+        style={{ fontSize: big ? "1.4rem" : "0.95rem" }}
+      >
+        Padel<span style={{ color: "var(--primary)" }}> · </span>Courtside
+      </p>
+      <p
+        className="brand-wordmark"
+        style={{
+          fontSize: big ? "0.8rem" : "0.65rem",
+          letterSpacing: "0.2em",
+          textTransform: "uppercase",
+          color: "var(--muted-foreground)",
+        }}
+      >
+        / withPri
       </p>
     </div>
   );
