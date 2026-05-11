@@ -349,21 +349,21 @@ function ToggleRow({
   onChange: () => void;
 }) {
   return (
-    <label className="flex items-center justify-between rounded-xl px-4 py-3">
+    <label className="flex items-center justify-between rounded-xl px-4 py-4">
       <div>
-        <p className="text-sm font-medium">{label}</p>
+        <p className="text-base font-semibold">{label}</p>
         <p className="text-xs text-muted-foreground">{desc}</p>
       </div>
       <button
         onClick={onChange}
-        className={`relative h-7 w-12 rounded-full transition ${
+        className={`relative h-9 w-16 rounded-full transition ${
           on ? "bg-primary" : "bg-border"
         }`}
         aria-pressed={on}
       >
         <span
-          className={`absolute top-0.5 size-6 rounded-full bg-background transition ${
-            on ? "left-[22px]" : "left-0.5"
+          className={`absolute top-1 size-7 rounded-full bg-background shadow transition ${
+            on ? "left-[30px]" : "left-1"
           }`}
         />
       </button>
