@@ -14,7 +14,7 @@ export const Route = createFileRoute("/")({
   component: Index,
   head: () => ({
     meta: [
-      { title: "Padel Score — Court Tracker" },
+      { title: "Padel · Courtside / withPri" },
       {
         name: "description",
         content:
@@ -244,54 +244,53 @@ function Setup({
   const [speaker, setSpeaker] = useState(initialSpeaker);
 
   return (
-    <div className="mx-auto flex min-h-dvh max-w-md flex-col gap-6 px-5 py-10">
+    <div className="mx-auto flex min-h-dvh max-w-md flex-col gap-6 px-5 py-8">
       <header className="flex items-center justify-between">
-        <div>
-          <p className="text-xs uppercase tracking-[0.25em] text-muted-foreground">
-            Padel · Court Tracker
-          </p>
-          <h1 className="font-display text-3xl font-bold">New match</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Pick a format. Add names later.
-          </p>
-        </div>
-        <div className="size-10 rounded-full bg-primary/20 ring-1 ring-primary/40 grid place-items-center">
-          <span className="size-3 rounded-full bg-primary shadow-[0_0_12px_var(--primary)]" />
+        <BrandMark />
+        <div className="size-12 rounded-full bg-primary/15 ring-1 ring-primary/40 grid place-items-center">
+          <span className="size-3 rounded-full bg-primary shadow-[0_0_14px_var(--primary)]" />
         </div>
       </header>
 
-      <div className="flex flex-col gap-3">
+      <div>
+        <h1 className="font-display text-4xl font-extrabold tracking-tight">New match</h1>
+        <p className="mt-1 text-base text-muted-foreground">
+          Pick a format. Add names later.
+        </p>
+      </div>
+
+      <div className="flex flex-col gap-4">
         <p className="text-xs uppercase tracking-widest text-muted-foreground">
           Format
         </p>
         <button
           onClick={() => onStart(3, golden, speaker)}
-          className="rounded-3xl bg-primary px-6 py-8 text-left text-primary-foreground shadow-[0_8px_30px_-8px_var(--primary)] active:scale-[0.99] transition"
+          className="rounded-3xl bg-primary px-7 py-10 text-left text-primary-foreground shadow-[0_10px_40px_-10px_var(--primary)] active:scale-[0.99] transition"
         >
-          <p className="text-xs font-bold uppercase tracking-[0.25em] opacity-70">
+          <p className="text-xs font-bold uppercase tracking-[0.25em] opacity-80">
             Standard
           </p>
-          <p className="font-display text-3xl font-bold">Best of 3</p>
-          <p className="mt-1 text-sm opacity-80">First to 2 sets wins</p>
+          <p className="font-display text-4xl font-extrabold">Best of 3</p>
+          <p className="mt-1 text-base opacity-90">First to 2 sets wins</p>
         </button>
         <button
           onClick={() => onStart(5, golden, speaker)}
-          className="rounded-3xl bg-card px-6 py-8 text-left ring-1 ring-border active:scale-[0.99] transition"
+          className="rounded-3xl px-7 py-10 text-left active:scale-[0.99] transition"
+          style={{
+            background: "var(--accent)",
+            color: "var(--accent-foreground)",
+            boxShadow: "0 10px 40px -10px var(--accent)",
+          }}
         >
-          <p
-            className="text-xs font-bold uppercase tracking-[0.25em]"
-            style={{ color: "var(--accent)" }}
-          >
+          <p className="text-xs font-bold uppercase tracking-[0.25em] opacity-80">
             Long
           </p>
-          <p className="font-display text-3xl font-bold">Best of 5</p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            First to 3 sets wins
-          </p>
+          <p className="font-display text-4xl font-extrabold">Best of 5</p>
+          <p className="mt-1 text-base opacity-90">First to 3 sets wins</p>
         </button>
       </div>
 
-      <div className="rounded-2xl bg-card p-2">
+      <div className="rounded-2xl bg-card p-2 ring-1 ring-border">
         <ToggleRow
           label="Golden Point"
           desc="Sudden death at deuce"
@@ -313,6 +312,31 @@ function Setup({
   );
 }
 
+function BrandMark({ size = "md" }: { size?: "sm" | "md" }) {
+  const big = size === "md";
+  return (
+    <div className={big ? "leading-tight" : "leading-tight text-sm"}>
+      <p
+        className="brand-wordmark"
+        style={{ fontSize: big ? "1.4rem" : "0.95rem" }}
+      >
+        Padel<span style={{ color: "var(--primary)" }}> · </span>Courtside
+      </p>
+      <p
+        className="brand-wordmark"
+        style={{
+          fontSize: big ? "0.8rem" : "0.65rem",
+          letterSpacing: "0.2em",
+          textTransform: "uppercase",
+          color: "var(--muted-foreground)",
+        }}
+      >
+        / withPri
+      </p>
+    </div>
+  );
+}
+
 function ToggleRow({
   label,
   desc,
@@ -325,21 +349,21 @@ function ToggleRow({
   onChange: () => void;
 }) {
   return (
-    <label className="flex items-center justify-between rounded-xl px-4 py-3">
+    <label className="flex items-center justify-between rounded-xl px-4 py-4">
       <div>
-        <p className="text-sm font-medium">{label}</p>
+        <p className="text-base font-semibold">{label}</p>
         <p className="text-xs text-muted-foreground">{desc}</p>
       </div>
       <button
         onClick={onChange}
-        className={`relative h-7 w-12 rounded-full transition ${
+        className={`relative h-9 w-16 rounded-full transition ${
           on ? "bg-primary" : "bg-border"
         }`}
         aria-pressed={on}
       >
         <span
-          className={`absolute top-0.5 size-6 rounded-full bg-background transition ${
-            on ? "left-[22px]" : "left-0.5"
+          className={`absolute top-1 size-7 rounded-full bg-background shadow transition ${
+            on ? "left-[30px]" : "left-1"
           }`}
         />
       </button>
@@ -379,26 +403,36 @@ function MatchView({
   const currentSetIdx = snapshot.sets.length;
   const currentTimer = setTimes[currentSetIdx];
 
+  const matchStarted =
+    snapshot.points.A > 0 ||
+    snapshot.points.B > 0 ||
+    snapshot.games.A > 0 ||
+    snapshot.games.B > 0 ||
+    snapshot.sets.length > 0;
+
   return (
     <div className="mx-auto flex min-h-dvh max-w-md flex-col">
       {/* Top bar */}
       <div className="flex items-center justify-between gap-2 px-4 pt-4">
-        <div className="flex items-center gap-2 text-[10px] uppercase tracking-widest text-muted-foreground">
-          <span className="size-2 rounded-full bg-primary animate-pulse" />
-          {snapshot.matchOver
-            ? "Match complete"
-            : snapshot.inTiebreak
-              ? "Tiebreak"
-              : `Best of ${cfg.bestOf}`}
+        <div className="flex flex-col gap-0.5">
+          <BrandMark size="sm" />
+          <div className="flex items-center gap-2 text-[10px] uppercase tracking-widest text-muted-foreground">
+            <span className="size-2 rounded-full bg-primary animate-pulse" />
+            {snapshot.matchOver
+              ? "Match complete"
+              : snapshot.inTiebreak
+                ? "Tiebreak"
+                : `Best of ${cfg.bestOf}`}
+          </div>
         </div>
-        <div className="flex gap-1.5">
+        <div className="flex gap-2">
           <IconBtn onClick={onToggleSpeaker} active={speakerOn} label="Speaker">
             {speakerOn ? "🔊" : "🔇"}
           </IconBtn>
           <button
             onClick={onUndo}
             disabled={!canUndo}
-            className="rounded-full bg-muted px-3 py-1.5 text-xs font-semibold text-muted-foreground disabled:opacity-40"
+            className="rounded-full bg-muted px-4 py-2.5 text-sm font-bold text-foreground disabled:opacity-40"
           >
             Undo
           </button>
@@ -406,7 +440,7 @@ function MatchView({
             onClick={() => {
               if (confirm("End match and start over?")) onReset();
             }}
-            className="rounded-full bg-muted px-3 py-1.5 text-xs font-semibold text-muted-foreground"
+            className="rounded-full bg-muted px-4 py-2.5 text-sm font-bold text-foreground"
           >
             New
           </button>
@@ -434,6 +468,7 @@ function MatchView({
           setsWon={snapshot.setsWon.A}
           unforced={snapshot.unforced.A}
           disabled={snapshot.matchOver}
+          unforcedDisabled={!matchStarted || snapshot.matchOver}
           onPoint={() => onPoint("A")}
           onUnforced={() => onUnforced("A")}
         />
@@ -445,6 +480,7 @@ function MatchView({
           setsWon={snapshot.setsWon.B}
           unforced={snapshot.unforced.B}
           disabled={snapshot.matchOver}
+          unforcedDisabled={!matchStarted || snapshot.matchOver}
           onPoint={() => onPoint("B")}
           onUnforced={() => onUnforced("B")}
         />
@@ -468,7 +504,7 @@ function IconBtn({
     <button
       onClick={onClick}
       aria-label={label}
-      className={`grid size-8 place-items-center rounded-full text-sm transition ${
+      className={`grid size-11 place-items-center rounded-full text-lg transition ${
         active
           ? "bg-primary text-primary-foreground"
           : "bg-muted text-muted-foreground"
@@ -588,6 +624,7 @@ function TeamPanel({
   setsWon,
   unforced,
   disabled,
+  unforcedDisabled,
   onPoint,
   onUnforced,
 }: {
@@ -598,6 +635,7 @@ function TeamPanel({
   setsWon: number;
   unforced: number;
   disabled: boolean;
+  unforcedDisabled?: boolean;
   onPoint: () => void;
   onUnforced: () => void;
 }) {
@@ -605,66 +643,69 @@ function TeamPanel({
     <button
       onClick={onPoint}
       disabled={disabled}
-      className="group relative flex flex-1 flex-col justify-between overflow-hidden rounded-3xl p-5 text-left transition active:scale-[0.99] disabled:opacity-60"
+      className="group relative flex flex-1 flex-col justify-between overflow-hidden rounded-3xl p-6 text-left transition active:scale-[0.99] disabled:opacity-60"
       style={{
-        background: `color-mix(in oklab, var(--${accent}) 22%, var(--card))`,
-        boxShadow: `inset 0 0 0 1px color-mix(in oklab, var(--${accent}) 50%, transparent)`,
+        background: `color-mix(in oklab, var(--${accent}) 28%, var(--card))`,
+        boxShadow: `inset 0 0 0 2px color-mix(in oklab, var(--${accent}) 65%, transparent)`,
       }}
     >
       <div
-        className="absolute inset-x-0 top-0 h-1.5"
+        className="absolute inset-x-0 top-0 h-2"
         style={{ background: `var(--${accent})` }}
       />
       <div
-        className="absolute -right-10 -top-10 size-32 rounded-full opacity-30 blur-2xl"
+        className="absolute -right-10 -top-10 size-40 rounded-full opacity-30 blur-2xl"
         style={{ background: `var(--${accent})` }}
       />
 
       <div className="relative flex items-start justify-between">
         <div>
           <p
-            className="text-xs font-bold uppercase tracking-[0.3em]"
+            className="text-sm font-extrabold uppercase tracking-[0.3em]"
             style={{ color: `var(--${accent})` }}
           >
             {name}
           </p>
-          <div className="mt-1 flex gap-3 text-[10px] uppercase tracking-widest text-muted-foreground">
+          <div className="mt-1.5 flex gap-4 text-xs uppercase tracking-widest text-muted-foreground">
             <span>
-              Sets <span className="score-num text-foreground">{setsWon}</span>
+              Sets <span className="score-num text-base text-foreground">{setsWon}</span>
             </span>
             <span>
-              Games <span className="score-num text-foreground">{games}</span>
+              Games <span className="score-num text-base text-foreground">{games}</span>
             </span>
           </div>
         </div>
       </div>
 
-      <div className="relative flex items-end justify-between">
+      <div className="relative flex items-end justify-between gap-3">
         <p
           className="score-num leading-none"
           style={{
-            fontSize: "clamp(4.5rem, 22vw, 8rem)",
+            fontSize: "clamp(5.5rem, 26vw, 9.5rem)",
             color: `var(--${accent})`,
             textShadow: `0 0 40px color-mix(in oklab, var(--${accent}) 50%, transparent)`,
           }}
         >
           {point}
         </p>
-        <div
+        <button
+          type="button"
           onClick={(e) => {
             e.stopPropagation();
-            if (!disabled) onUnforced();
+            if (!unforcedDisabled) onUnforced();
           }}
-          role="button"
+          disabled={unforcedDisabled}
           aria-label="Add unforced error"
-          className="flex flex-col items-center gap-1 rounded-2xl bg-background/70 px-3 py-2 ring-1 ring-border backdrop-blur active:scale-95 transition"
+          className="flex min-w-[96px] flex-col items-center gap-1 rounded-2xl bg-background/85 px-4 py-3 ring-2 ring-border backdrop-blur transition active:scale-95 disabled:opacity-40 disabled:pointer-events-none"
         >
-          <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
+          <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
             Unforced
           </span>
-          <span className="score-num text-xl text-destructive">{unforced}</span>
-          <span className="text-[10px] font-semibold text-destructive">+ TAP</span>
-        </div>
+          <span className="score-num text-3xl text-destructive">{unforced}</span>
+          <span className="text-xs font-extrabold tracking-wider text-destructive">
+            + TAP
+          </span>
+        </button>
       </div>
     </button>
   );
