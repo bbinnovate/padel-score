@@ -441,6 +441,8 @@ function MatchView({
   setTimes,
   speakerOn,
   onToggleSpeaker,
+  bigMode,
+  onToggleBig,
   canUndo,
   onPoint,
   onUnforced,
@@ -454,6 +456,8 @@ function MatchView({
   setTimes: SetTime[];
   speakerOn: boolean;
   onToggleSpeaker: () => void;
+  bigMode: boolean;
+  onToggleBig: () => void;
   canUndo: boolean;
   onPoint: (t: TeamId) => void;
   onUnforced: (t: TeamId) => void;
@@ -473,7 +477,7 @@ function MatchView({
     snapshot.sets.length > 0;
 
   return (
-    <div className="mx-auto flex min-h-dvh max-w-md flex-col">
+    <div className={`mx-auto flex min-h-dvh ${bigMode ? "max-w-2xl" : "max-w-md"} flex-col`}>
       {/* Top bar */}
       <div className="flex items-center justify-between gap-2 px-4 pt-4">
         <div className="flex flex-col gap-0.5">
@@ -488,6 +492,9 @@ function MatchView({
           </div>
         </div>
         <div className="flex gap-2">
+          <IconBtn onClick={onToggleBig} active={bigMode} label="Big distance mode">
+            {bigMode ? "🔍" : "👁"}
+          </IconBtn>
           <IconBtn onClick={onToggleSpeaker} active={speakerOn} label="Speaker">
             {speakerOn ? "🔊" : "🔇"}
           </IconBtn>
@@ -516,8 +523,9 @@ function MatchView({
           setIdx={currentSetIdx}
           onTogglePause={onTogglePauseSet}
           disabled={snapshot.matchOver}
+          big={bigMode}
         />
-        <SetStrip snapshot={snapshot} setTimes={setTimes} />
+        <SetStrip snapshot={snapshot} setTimes={setTimes} big={bigMode} />
       </div>
 
       {/* Teams */}
@@ -531,6 +539,7 @@ function MatchView({
           unforced={snapshot.unforced.A}
           disabled={snapshot.matchOver}
           unforcedDisabled={!matchStarted || snapshot.matchOver}
+          big={bigMode}
           onPoint={() => onPoint("A")}
           onUnforced={() => onUnforced("A")}
         />
@@ -543,6 +552,7 @@ function MatchView({
           unforced={snapshot.unforced.B}
           disabled={snapshot.matchOver}
           unforcedDisabled={!matchStarted || snapshot.matchOver}
+          big={bigMode}
           onPoint={() => onPoint("B")}
           onUnforced={() => onUnforced("B")}
         />
