@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
+import confetti from "canvas-confetti";
 import {
   addUnforced,
   awardPoint,
@@ -9,6 +10,53 @@ import {
   type Snapshot,
   type TeamId,
 } from "@/lib/padel";
+
+function haptic(pattern: number | number[]) {
+  if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+    try {
+      navigator.vibrate(pattern);
+    } catch {}
+  }
+}
+
+function teamHex(team: TeamId) {
+  return team === "A" ? "#0047FF" : "#DCFF1B";
+}
+
+function celebrateSet(team: TeamId) {
+  const color = teamHex(team);
+  const palette = [color, "#0047FF", "#DCFF1B", "#F4F2EC"];
+  const burst = (x: number) =>
+    confetti({
+      particleCount: 80,
+      spread: 75,
+      startVelocity: 50,
+      origin: { x, y: 0.7 },
+      colors: palette,
+    });
+  burst(0.2);
+  burst(0.8);
+  setTimeout(() => burst(0.5), 180);
+}
+
+function celebrateMatch(team: TeamId) {
+  const color = teamHex(team);
+  const palette = [color, "#0047FF", "#DCFF1B", "#F4F2EC"];
+  confetti({
+    particleCount: 220,
+    spread: 120,
+    startVelocity: 60,
+    origin: { y: 0.55 },
+    colors: palette,
+  });
+  const end = Date.now() + 2200;
+  const frame = () => {
+    confetti({ particleCount: 8, angle: 60, spread: 80, origin: { x: 0, y: 0.85 }, colors: palette });
+    confetti({ particleCount: 8, angle: 120, spread: 80, origin: { x: 1, y: 0.85 }, colors: palette });
+    if (Date.now() < end) requestAnimationFrame(frame);
+  };
+  frame();
+}
 
 export const Route = createFileRoute("/")({
   component: Index,
@@ -49,18 +97,20 @@ function Index() {
   const [history, setHistory] = useState<Snapshot[]>([initialSnapshot()]);
   const [setTimes, setSetTimes] = useState<SetTime[]>([]);
   const [speakerOn, setSpeakerOn] = useState(true);
+  const [bigMode, setBigMode] = useState(false);
 
   // Hydrate
   useEffect(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) return;
-      const parsed: Stored = JSON.parse(raw);
+      const parsed: Stored & { bigMode?: boolean } = JSON.parse(raw);
       if (parsed?.cfg) {
         setCfg(parsed.cfg);
         setHistory(parsed.history ?? [initialSnapshot()]);
         setSetTimes(parsed.setTimes ?? []);
         setSpeakerOn(parsed.speakerOn ?? true);
+        setBigMode(parsed.bigMode ?? false);
         setScreen(parsed.screen ?? "match");
       }
     } catch {}
@@ -71,7 +121,7 @@ function Index() {
     if (cfg) {
       localStorage.setItem(
         STORAGE_KEY,
-        JSON.stringify({ cfg, history, setTimes, speakerOn, screen } as Stored),
+        JSON.stringify({ cfg, history, setTimes, speakerOn, screen, bigMode } as Stored & { bigMode: boolean }),
       );
     }
   }, [cfg, history, setTimes, speakerOn, screen]);
@@ -120,15 +170,25 @@ function Index() {
       // Voice
       if (speakerOn) speakScore(next, cfg, team);
 
-      // If match over → go to summary
+      // Haptics + celebrations
       if (next.matchOver) {
-        setTimeout(() => setScreen("summary"), 300);
+        haptic([60, 40, 60, 40, 200]);
+        celebrateMatch(next.winner ?? team);
+        setTimeout(() => setScreen("summary"), 1500);
+      } else if (next.sets.length > prev.sets.length) {
+        haptic([40, 30, 80]);
+        celebrateSet(team);
+      } else if (next.games.A > prev.games.A || next.games.B > prev.games.B) {
+        haptic([20, 30, 40]);
+      } else {
+        haptic(25);
       }
       return [...h, next];
     });
   };
 
   const onUnforced = (team: TeamId) => {
+    haptic([10, 20, 10]);
     setHistory((h) => [...h, addUnforced(h[h.length - 1], team)]);
   };
 
@@ -186,6 +246,8 @@ function Index() {
           setTimes={setTimes}
           speakerOn={speakerOn}
           onToggleSpeaker={() => setSpeakerOn((v) => !v)}
+          bigMode={bigMode}
+          onToggleBig={() => setBigMode((v) => !v)}
           canUndo={history.length > 1}
           onPoint={onPoint}
           onUnforced={onUnforced}
@@ -379,6 +441,8 @@ function MatchView({
   setTimes,
   speakerOn,
   onToggleSpeaker,
+  bigMode,
+  onToggleBig,
   canUndo,
   onPoint,
   onUnforced,
@@ -392,6 +456,8 @@ function MatchView({
   setTimes: SetTime[];
   speakerOn: boolean;
   onToggleSpeaker: () => void;
+  bigMode: boolean;
+  onToggleBig: () => void;
   canUndo: boolean;
   onPoint: (t: TeamId) => void;
   onUnforced: (t: TeamId) => void;
@@ -411,7 +477,7 @@ function MatchView({
     snapshot.sets.length > 0;
 
   return (
-    <div className="mx-auto flex min-h-dvh max-w-md flex-col">
+    <div className={`mx-auto flex min-h-dvh ${bigMode ? "max-w-2xl" : "max-w-md"} flex-col`}>
       {/* Top bar */}
       <div className="flex items-center justify-between gap-2 px-4 pt-4">
         <div className="flex flex-col gap-0.5">
@@ -426,6 +492,9 @@ function MatchView({
           </div>
         </div>
         <div className="flex gap-2">
+          <IconBtn onClick={onToggleBig} active={bigMode} label="Big distance mode">
+            {bigMode ? "🔍" : "👁"}
+          </IconBtn>
           <IconBtn onClick={onToggleSpeaker} active={speakerOn} label="Speaker">
             {speakerOn ? "🔊" : "🔇"}
           </IconBtn>
@@ -454,8 +523,9 @@ function MatchView({
           setIdx={currentSetIdx}
           onTogglePause={onTogglePauseSet}
           disabled={snapshot.matchOver}
+          big={bigMode}
         />
-        <SetStrip snapshot={snapshot} setTimes={setTimes} />
+        <SetStrip snapshot={snapshot} setTimes={setTimes} big={bigMode} />
       </div>
 
       {/* Teams */}
@@ -469,6 +539,7 @@ function MatchView({
           unforced={snapshot.unforced.A}
           disabled={snapshot.matchOver}
           unforcedDisabled={!matchStarted || snapshot.matchOver}
+          big={bigMode}
           onPoint={() => onPoint("A")}
           onUnforced={() => onUnforced("A")}
         />
@@ -481,6 +552,7 @@ function MatchView({
           unforced={snapshot.unforced.B}
           disabled={snapshot.matchOver}
           unforcedDisabled={!matchStarted || snapshot.matchOver}
+          big={bigMode}
           onPoint={() => onPoint("B")}
           onUnforced={() => onUnforced("B")}
         />
@@ -527,11 +599,13 @@ function SetTimerCard({
   setIdx,
   onTogglePause,
   disabled,
+  big,
 }: {
   timer: SetTime | undefined;
   setIdx: number;
   onTogglePause: () => void;
   disabled: boolean;
+  big?: boolean;
 }) {
   const [, force] = useState(0);
   useEffect(() => {
@@ -552,15 +626,15 @@ function SetTimerCard({
     <button
       onClick={onTogglePause}
       disabled={disabled || !timer}
-      className="flex flex-col items-start justify-center rounded-2xl bg-card px-3 py-2 text-left ring-1 ring-border disabled:opacity-60"
+      className={`flex flex-col items-start justify-center rounded-2xl bg-card text-left ring-1 ring-border disabled:opacity-60 ${big ? "px-5 py-3" : "px-3 py-2"}`}
     >
-      <span className="text-[9px] uppercase tracking-widest text-muted-foreground">
+      <span className={`uppercase tracking-widest text-muted-foreground ${big ? "text-xs" : "text-[9px]"}`}>
         Set {setIdx + 1} {paused ? "· paused" : timer ? "· live" : ""}
       </span>
-      <span className="score-num text-base">
+      <span className={`score-num ${big ? "text-2xl" : "text-base"}`}>
         {timer ? fmtElapsed(elapsed) : "0:00"}
       </span>
-      <span className="text-[9px] uppercase tracking-widest text-muted-foreground">
+      <span className={`uppercase tracking-widest text-muted-foreground ${big ? "text-[10px]" : "text-[9px]"}`}>
         {!timer ? "Tap a team to start" : paused ? "Tap to resume" : "Tap to pause"}
       </span>
     </button>
@@ -570,9 +644,11 @@ function SetTimerCard({
 function SetStrip({
   snapshot,
   setTimes,
+  big,
 }: {
   snapshot: Snapshot;
   setTimes: SetTime[];
+  big?: boolean;
 }) {
   const cells: Array<{
     a: number | string;
@@ -589,26 +665,26 @@ function SetStrip({
     cells.push({ a: snapshot.games.A, b: snapshot.games.B, live: true });
   }
   return (
-    <div className="flex flex-1 items-center gap-2 overflow-x-auto rounded-2xl bg-card p-2 ring-1 ring-border">
-      <div className="flex flex-col gap-1 pr-1 text-[9px] uppercase tracking-widest">
-        <span style={{ color: "var(--team-a)" }}>A</span>
-        <span style={{ color: "var(--team-b)" }}>B</span>
+    <div className={`flex flex-1 items-center gap-2 overflow-x-auto rounded-2xl bg-card ring-1 ring-border ${big ? "p-3" : "p-2"}`}>
+      <div className={`flex flex-col gap-1 pr-1 uppercase tracking-widest font-extrabold ${big ? "text-sm" : "text-[9px]"}`}>
+        <span style={{ color: "var(--team-a-ink)" }}>A</span>
+        <span style={{ color: "var(--team-b-ink)" }}>B</span>
       </div>
       {cells.map((c, i) => (
         <div
           key={i}
-          className={`flex flex-col items-center rounded-lg px-2 py-1 tabular ${
+          className={`flex flex-col items-center rounded-lg tabular ${big ? "px-3 py-1.5" : "px-2 py-1"} ${
             c.live ? "bg-muted" : ""
           }`}
         >
-          <span className="score-num text-sm" style={{ color: "var(--team-a)" }}>
+          <span className={`score-num ${big ? "text-xl" : "text-sm"}`} style={{ color: "var(--team-a-ink)" }}>
             {c.a}
           </span>
-          <span className="score-num text-sm" style={{ color: "var(--team-b)" }}>
+          <span className={`score-num ${big ? "text-xl" : "text-sm"}`} style={{ color: "var(--team-b-ink)" }}>
             {c.b}
           </span>
           {c.duration && (
-            <span className="text-[8px] text-muted-foreground">{c.duration}</span>
+            <span className={`text-muted-foreground ${big ? "text-[10px]" : "text-[8px]"}`}>{c.duration}</span>
           )}
         </div>
       ))}
@@ -625,6 +701,7 @@ function TeamPanel({
   unforced,
   disabled,
   unforcedDisabled,
+  big,
   onPoint,
   onUnforced,
 }: {
@@ -636,21 +713,23 @@ function TeamPanel({
   unforced: number;
   disabled: boolean;
   unforcedDisabled?: boolean;
+  big?: boolean;
   onPoint: () => void;
   onUnforced: () => void;
 }) {
+  const inkVar = `var(--${accent}-ink)`;
   return (
     <button
       onClick={onPoint}
       disabled={disabled}
-      className="group relative flex flex-1 flex-col justify-between overflow-hidden rounded-3xl p-6 text-left transition active:scale-[0.99] disabled:opacity-60"
+      className={`group relative flex flex-1 flex-col justify-between overflow-hidden rounded-3xl text-left transition active:scale-[0.99] disabled:opacity-60 ${big ? "p-8" : "p-6"}`}
       style={{
-        background: `color-mix(in oklab, var(--${accent}) 28%, var(--card))`,
-        boxShadow: `inset 0 0 0 2px color-mix(in oklab, var(--${accent}) 65%, transparent)`,
+        background: `color-mix(in oklab, var(--${accent}) 32%, var(--card))`,
+        boxShadow: `inset 0 0 0 3px color-mix(in oklab, var(--${accent}) 75%, transparent)`,
       }}
     >
       <div
-        className="absolute inset-x-0 top-0 h-2"
+        className={`absolute inset-x-0 top-0 ${big ? "h-3" : "h-2"}`}
         style={{ background: `var(--${accent})` }}
       />
       <div
@@ -661,17 +740,17 @@ function TeamPanel({
       <div className="relative flex items-start justify-between">
         <div>
           <p
-            className="text-sm font-extrabold uppercase tracking-[0.3em]"
-            style={{ color: `var(--${accent})` }}
+            className={`font-extrabold uppercase tracking-[0.3em] ${big ? "text-xl" : "text-sm"}`}
+            style={{ color: inkVar }}
           >
             {name}
           </p>
-          <div className="mt-1.5 flex gap-4 text-xs uppercase tracking-widest text-muted-foreground">
+          <div className={`mt-1.5 flex gap-4 uppercase tracking-widest text-muted-foreground ${big ? "text-base" : "text-xs"}`}>
             <span>
-              Sets <span className="score-num text-base text-foreground">{setsWon}</span>
+              Sets <span className={`score-num text-foreground ${big ? "text-2xl" : "text-base"}`}>{setsWon}</span>
             </span>
             <span>
-              Games <span className="score-num text-base text-foreground">{games}</span>
+              Games <span className={`score-num text-foreground ${big ? "text-2xl" : "text-base"}`}>{games}</span>
             </span>
           </div>
         </div>
@@ -681,9 +760,11 @@ function TeamPanel({
         <p
           className="score-num leading-none"
           style={{
-            fontSize: "clamp(5.5rem, 26vw, 9.5rem)",
-            color: `var(--${accent})`,
-            textShadow: `0 0 40px color-mix(in oklab, var(--${accent}) 50%, transparent)`,
+            fontSize: big
+              ? "clamp(8rem, 36vw, 14rem)"
+              : "clamp(5.5rem, 26vw, 9.5rem)",
+            color: inkVar,
+            textShadow: `0 0 40px color-mix(in oklab, var(--${accent}) 60%, transparent)`,
           }}
         >
           {point}
@@ -696,13 +777,13 @@ function TeamPanel({
           }}
           disabled={unforcedDisabled}
           aria-label="Add unforced error"
-          className="flex min-w-[96px] flex-col items-center gap-1 rounded-2xl bg-background/85 px-4 py-3 ring-2 ring-border backdrop-blur transition active:scale-95 disabled:opacity-40 disabled:pointer-events-none"
+          className={`flex flex-col items-center gap-1 rounded-2xl bg-background/90 ring-2 ring-border backdrop-blur transition active:scale-95 disabled:opacity-40 disabled:pointer-events-none ${big ? "min-w-[140px] px-5 py-5" : "min-w-[96px] px-4 py-3"}`}
         >
-          <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+          <span className={`font-semibold uppercase tracking-widest text-muted-foreground ${big ? "text-sm" : "text-xs"}`}>
             Unforced
           </span>
-          <span className="score-num text-3xl text-destructive">{unforced}</span>
-          <span className="text-xs font-extrabold tracking-wider text-destructive">
+          <span className={`score-num text-destructive ${big ? "text-5xl" : "text-3xl"}`}>{unforced}</span>
+          <span className={`font-extrabold tracking-wider text-destructive ${big ? "text-sm" : "text-xs"}`}>
             + TAP
           </span>
         </button>
