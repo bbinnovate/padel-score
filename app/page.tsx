@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react"; // useCallback kept for fetchHistory
 import confetti from "canvas-confetti";
 import {
   addUnforced,
@@ -11,6 +11,15 @@ import {
   type Snapshot,
   type TeamId,
 } from "@/lib/padel";
+import { getPlayerCode, getOriginalCode, setPlayerCode, restoreOriginalCode } from "@/lib/device";
+// getPlayerCode reads localStorage directly — used inside callbacks to avoid stale state
+import {
+  saveMatch,
+  updateMatchNames,
+  loadMatches,
+  type MatchRecord,
+  type MatchPage,
+} from "@/lib/match-store";
 
 function haptic(pattern: number | number[]) {
   if (typeof navigator !== "undefined" && "vibrate" in navigator) {
@@ -86,6 +95,7 @@ interface Stored {
   setTimes: SetTime[];
   speakerOn: boolean;
   screen: Screen;
+  savedMatchId?: string;
 }
 
 const STORAGE_KEY = "padel-match-v2";
@@ -97,6 +107,13 @@ export default function Home() {
   const [setTimes, setSetTimes] = useState<SetTime[]>([]);
   const [speakerOn, setSpeakerOn] = useState(true);
   const [bigMode, setBigMode] = useState(false);
+  const [playerCode, setPlayerCodeState] = useState("");
+  const [savedMatchId, setSavedMatchId] = useState<string | undefined>();
+  const [saveError, setSaveError] = useState<string | undefined>();
+
+  useEffect(() => {
+    setPlayerCodeState(getPlayerCode());
+  }, []);
 
   useEffect(() => {
     try {
@@ -110,6 +127,7 @@ export default function Home() {
         setSpeakerOn(parsed.speakerOn ?? true);
         setBigMode(parsed.bigMode ?? false);
         setScreen(parsed.screen ?? "match");
+        setSavedMatchId(parsed.savedMatchId);
       }
     } catch {}
   }, []);
@@ -118,12 +136,18 @@ export default function Home() {
     if (cfg) {
       localStorage.setItem(
         STORAGE_KEY,
-        JSON.stringify({ cfg, history, setTimes, speakerOn, screen, bigMode } as Stored & {
-          bigMode: boolean;
-        }),
+        JSON.stringify({
+          cfg,
+          history,
+          setTimes,
+          speakerOn,
+          screen,
+          bigMode,
+          savedMatchId,
+        } as Stored & { bigMode: boolean }),
       );
     }
-  }, [cfg, history, setTimes, speakerOn, screen, bigMode]);
+  }, [cfg, history, setTimes, speakerOn, screen, bigMode, savedMatchId]);
 
   const snapshot = history[history.length - 1];
   const prevSnapshot = history.length > 1 ? history[history.length - 2] : null;
@@ -138,6 +162,7 @@ export default function Home() {
     setHistory([initialSnapshot()]);
     setSetTimes([]);
     setSpeakerOn(speaker);
+    setSavedMatchId(undefined);
     setScreen("match");
   };
 
@@ -194,7 +219,50 @@ export default function Home() {
     setCfg(null);
     setHistory([initialSnapshot()]);
     setSetTimes([]);
+    setSavedMatchId(undefined);
     setScreen("setup");
+  };
+
+  const totalMs = setTimes.reduce(
+    (acc, t) => acc + ((t.end ?? Date.now()) - t.start - t.pausedAccum),
+    0,
+  );
+
+  // Auto-save to Firestore when summary screen is shown.
+  // Read playerCode directly from localStorage to avoid stale closure.
+  useEffect(() => {
+    if (screen !== "summary" || !cfg || !snapshot.matchOver || savedMatchId) return;
+    const code = getPlayerCode();
+    if (!code) return;
+    saveMatch(code, cfg, snapshot, totalMs)
+      .then((id) => setSavedMatchId(id))
+      .catch((e) => {
+        const msg = e instanceof Error ? e.message : String(e);
+        setSaveError(msg);
+        console.error("Failed to save match:", e);
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [screen]);
+
+  const updateNames = async (next: MatchConfig) => {
+    setCfg(next);
+    if (playerCode && savedMatchId) {
+      try {
+        await updateMatchNames(playerCode, savedMatchId, next);
+      } catch (e) {
+        console.error("Failed to update match names", e);
+      }
+    }
+  };
+
+  const handleCodeChange = (code: string) => {
+    setPlayerCode(code);
+    setPlayerCodeState(code);
+  };
+
+  const handleRestoreCode = () => {
+    const original = restoreOriginalCode();
+    setPlayerCodeState(original);
   };
 
   const togglePauseCurrentSet = () => {
@@ -216,17 +284,24 @@ export default function Home() {
     });
   };
 
-  const updateNames = (next: MatchConfig) => setCfg(next);
-
   return (
     <main className="min-h-dvh w-full">
+      <InstallModal />
       {screen === "setup" || !cfg ? (
-        <Setup onStart={startMatch} initialSpeaker={speakerOn} />
+        <Setup
+          onStart={startMatch}
+          initialSpeaker={speakerOn}
+          playerCode={playerCode}
+          onCodeChange={handleCodeChange}
+          onRestoreCode={handleRestoreCode}
+        />
       ) : screen === "summary" ? (
         <Summary
           cfg={cfg}
           snapshot={snapshot}
           setTimes={setTimes}
+          saved={!!savedMatchId}
+          saveError={saveError}
           onSave={updateNames}
           onNew={reset}
         />
@@ -249,6 +324,122 @@ export default function Home() {
         />
       )}
     </main>
+  );
+}
+
+/* -------------------- Install Modal -------------------- */
+
+const INSTALL_KEY = "padel-install-dismissed";
+
+function InstallModal() {
+  const [show, setShow] = useState(false);
+  const [platform, setPlatform] = useState<"ios" | "android" | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (localStorage.getItem(INSTALL_KEY)) return;
+
+    const standalone =
+      window.matchMedia("(display-mode: standalone)").matches ||
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (navigator as any).standalone === true;
+    if (standalone) return;
+
+    const ua = navigator.userAgent;
+    const isIOS = /iphone|ipad|ipod/i.test(ua) && !/CriOS|FxiOS/i.test(ua);
+    const isAndroid = /android/i.test(ua);
+
+    if (isIOS) {
+      setTimeout(() => { setPlatform("ios"); setShow(true); }, 2000);
+    } else if (isAndroid) {
+      const handler = (e: Event) => {
+        e.preventDefault();
+        setDeferredPrompt(e);
+        setTimeout(() => { setPlatform("android"); setShow(true); }, 2000);
+      };
+      window.addEventListener("beforeinstallprompt", handler);
+      return () => window.removeEventListener("beforeinstallprompt", handler);
+    }
+  }, []);
+
+  const dismiss = (permanent: boolean) => {
+    if (permanent) localStorage.setItem(INSTALL_KEY, "1");
+    setShow(false);
+  };
+
+  const install = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      await deferredPrompt.userChoice;
+      setDeferredPrompt(null);
+    }
+    dismiss(true);
+  };
+
+  if (!show || !platform) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center p-4 pb-8">
+      <div
+        className="absolute inset-0 bg-foreground/30 backdrop-blur-sm"
+        onClick={() => dismiss(false)}
+      />
+      <div className="relative w-full max-w-md rounded-3xl bg-card p-6 shadow-2xl ring-1 ring-border">
+        <div className="mb-4 flex items-center gap-3">
+          <div className="grid size-12 place-items-center rounded-2xl bg-primary">
+            <span className="text-2xl">🎾</span>
+          </div>
+          <div>
+            <p className="font-bold text-base">Add to Home Screen</p>
+            <p className="text-xs text-muted-foreground">Get the full app experience</p>
+          </div>
+        </div>
+
+        {platform === "ios" ? (
+          <div className="mb-5 flex flex-col gap-3">
+            {[
+              { icon: "⬆️", text: "Tap the Share button in Safari's toolbar" },
+              { icon: "➕", text: 'Scroll down and tap "Add to Home Screen"' },
+              { icon: "✅", text: 'Tap "Add" to install Padel Score' },
+            ].map((step, i) => (
+              <div key={i} className="flex items-center gap-3">
+                <span className="text-xl">{step.icon}</span>
+                <p className="text-sm text-muted-foreground">{step.text}</p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="mb-5 text-sm text-muted-foreground">
+            Install Padel Score for instant access from your home screen — works offline too.
+          </p>
+        )}
+
+        <div className="flex gap-2">
+          {platform === "android" && (
+            <button
+              onClick={install}
+              className="flex-1 rounded-2xl bg-primary py-3 text-sm font-bold text-primary-foreground"
+            >
+              Install
+            </button>
+          )}
+          <button
+            onClick={() => dismiss(false)}
+            className="flex-1 rounded-2xl bg-muted py-3 text-sm font-semibold text-foreground"
+          >
+            Not now
+          </button>
+          <button
+            onClick={() => dismiss(true)}
+            className="flex-1 rounded-2xl bg-muted py-3 text-sm font-semibold text-muted-foreground"
+          >
+            Don't show again
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -285,74 +476,339 @@ function speakScore(s: Snapshot, cfg: MatchConfig, scorer: TeamId) {
 
 /* -------------------- Setup -------------------- */
 
+type SetupTab = "new" | "history";
+
 function Setup({
   onStart,
   initialSpeaker,
+  playerCode,
+  onCodeChange,
+  onRestoreCode,
 }: {
   onStart: (bestOf: 3 | 5, golden: boolean, speaker: boolean) => void;
   initialSpeaker: boolean;
+  playerCode: string;
+  onCodeChange: (code: string) => void;
+  onRestoreCode: () => void;
 }) {
   const [golden, setGolden] = useState(true);
   const [speaker, setSpeaker] = useState(initialSpeaker);
+  const [tab, setTab] = useState<SetupTab>("new");
+  const [history, setHistory] = useState<MatchRecord[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [cursor, setCursor] = useState<MatchPage["cursor"]>(null);
+  const [showCodeInput, setShowCodeInput] = useState(false);
+  const [codeInput, setCodeInput] = useState("");
+  const [codeError, setCodeError] = useState("");
+  const originalCode = getOriginalCode();
+
+  const fetchHistory = useCallback(async (code: string) => {
+    if (!code) return;
+    setLoadingHistory(true);
+    try {
+      const page = await loadMatches(code);
+      setHistory(page.records);
+      setCursor(page.cursor);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingHistory(false);
+    }
+  }, []);
+
+  const loadMore = async () => {
+    if (!playerCode || !cursor) return;
+    setLoadingMore(true);
+    try {
+      const page = await loadMatches(playerCode, cursor);
+      setHistory((prev) => [...prev, ...page.records]);
+      setCursor(page.cursor);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
+  useEffect(() => {
+    if (tab === "history" && playerCode) {
+      fetchHistory(playerCode);
+    }
+  }, [tab, playerCode, fetchHistory]);
+
+  const handleCodeSubmit = () => {
+    const trimmed = codeInput.toUpperCase().trim();
+    if (trimmed.length < 4) {
+      setCodeError("Code must be at least 4 characters");
+      return;
+    }
+    onCodeChange(trimmed);
+    setShowCodeInput(false);
+    setCodeInput("");
+    setCodeError("");
+    if (tab === "history") fetchHistory(trimmed);
+  };
 
   return (
-    <div className="mx-auto flex min-h-dvh max-w-md flex-col gap-6 px-5 py-8">
+    <div className="mx-auto flex min-h-dvh max-w-md flex-col gap-4 px-5 pb-8 pt-safe">
       <header className="flex items-center justify-between">
         <BrandMark />
-        <div className="size-12 rounded-full bg-primary/15 ring-1 ring-primary/40 grid place-items-center">
-          <span className="size-3 rounded-full bg-primary shadow-[0_0_14px_var(--primary)]" />
-        </div>
+        <button
+          onClick={() => setShowCodeInput((v) => !v)}
+          className="flex flex-col items-end gap-0.5"
+        >
+          <span className="text-[9px] uppercase tracking-widest text-muted-foreground">
+            Player code
+          </span>
+          <span className="font-mono text-xs font-bold tracking-wider text-primary">
+            {playerCode || "…"}
+          </span>
+        </button>
       </header>
 
-      <div>
-        <h1 className="font-display text-4xl font-extrabold tracking-tight">New match</h1>
-        <p className="mt-1 text-base text-muted-foreground">Pick a format. Add names later.</p>
+      {showCodeInput && (
+        <div className="rounded-2xl bg-card p-4 ring-1 ring-border">
+          <p className="mb-1 text-xs font-semibold">Enter a code to sync with another device</p>
+          <p className="mb-3 text-xs text-muted-foreground">
+            Share your code with others or enter theirs to view shared history.
+          </p>
+          <div className="flex gap-2">
+            <input
+              value={codeInput}
+              onChange={(e) => {
+                setCodeInput(e.target.value.toUpperCase());
+                setCodeError("");
+              }}
+              placeholder={playerCode}
+              className="flex-1 rounded-xl bg-muted px-3 py-2 font-mono text-sm uppercase outline-none focus:ring-2 focus:ring-primary"
+              maxLength={9}
+            />
+            <button
+              onClick={handleCodeSubmit}
+              className="rounded-xl bg-primary px-4 py-2 text-sm font-bold text-primary-foreground"
+            >
+              Use
+            </button>
+          </div>
+          {codeError && <p className="mt-1.5 text-xs text-destructive">{codeError}</p>}
+          <CopyButton text={playerCode} label={`Copy my code (${playerCode})`} />
+          {playerCode !== originalCode && (
+            <button
+              onClick={() => {
+                onRestoreCode();
+                setShowCodeInput(false);
+              }}
+              className="mt-2 w-full rounded-xl bg-muted py-2.5 text-sm font-semibold text-foreground"
+            >
+              Back to my code ({originalCode})
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Tabs */}
+      <div className="flex rounded-2xl bg-muted p-1">
+        {(["new", "history"] as SetupTab[]).map((t) => (
+          <button
+            key={t}
+            onClick={() => setTab(t)}
+            className={`flex-1 rounded-xl py-2.5 text-sm font-bold transition ${
+              tab === t ? "bg-background shadow text-foreground" : "text-muted-foreground"
+            }`}
+          >
+            {t === "new" ? "New Match" : "History"}
+          </button>
+        ))}
       </div>
 
-      <div className="flex flex-col gap-4">
-        <p className="text-xs uppercase tracking-widest text-muted-foreground">Format</p>
-        <button
-          onClick={() => onStart(3, golden, speaker)}
-          className="rounded-3xl bg-primary px-7 py-10 text-left text-primary-foreground shadow-[0_10px_40px_-10px_var(--primary)] active:scale-[0.99] transition"
-        >
-          <p className="text-xs font-bold uppercase tracking-[0.25em] opacity-80">Standard</p>
-          <p className="font-display text-4xl font-extrabold">Best of 3</p>
-          <p className="mt-1 text-base opacity-90">First to 2 sets wins</p>
-        </button>
-        <button
-          onClick={() => onStart(5, golden, speaker)}
-          className="rounded-3xl px-7 py-10 text-left active:scale-[0.99] transition"
-          style={{
-            background: "var(--accent)",
-            color: "var(--accent-foreground)",
-            boxShadow: "0 10px 40px -10px var(--accent)",
-          }}
-        >
-          <p className="text-xs font-bold uppercase tracking-[0.25em] opacity-80">Long</p>
-          <p className="font-display text-4xl font-extrabold">Best of 5</p>
-          <p className="mt-1 text-base opacity-90">First to 3 sets wins</p>
-        </button>
-      </div>
+      {tab === "new" ? (
+        <>
+          <div>
+            <h1 className="font-display text-4xl font-extrabold tracking-tight">New match</h1>
+            <p className="mt-1 text-base text-muted-foreground">Pick a format. Add names later.</p>
+          </div>
 
-      <div className="rounded-2xl bg-card p-2 ring-1 ring-border">
-        <ToggleRow
-          label="Golden Point"
-          desc="Sudden death at deuce"
-          on={golden}
-          onChange={() => setGolden((g) => !g)}
+          <div className="flex flex-col gap-4">
+            <p className="text-xs uppercase tracking-widest text-muted-foreground">Format</p>
+            <button
+              onClick={() => onStart(3, golden, speaker)}
+              className="rounded-3xl bg-primary px-7 py-10 text-left text-primary-foreground shadow-[0_10px_40px_-10px_var(--primary)] active:scale-[0.99] transition"
+            >
+              <p className="text-xs font-bold uppercase tracking-[0.25em] opacity-80">Standard</p>
+              <p className="font-display text-4xl font-extrabold">Best of 3</p>
+              <p className="mt-1 text-base opacity-90">First to 2 sets wins</p>
+            </button>
+            <button
+              onClick={() => onStart(5, golden, speaker)}
+              className="rounded-3xl px-7 py-10 text-left active:scale-[0.99] transition"
+              style={{
+                background: "var(--accent)",
+                color: "var(--accent-foreground)",
+                boxShadow: "0 10px 40px -10px var(--accent)",
+              }}
+            >
+              <p className="text-xs font-bold uppercase tracking-[0.25em] opacity-80">Long</p>
+              <p className="font-display text-4xl font-extrabold">Best of 5</p>
+              <p className="mt-1 text-base opacity-90">First to 3 sets wins</p>
+            </button>
+          </div>
+
+          <div className="rounded-2xl bg-card p-2 ring-1 ring-border">
+            <ToggleRow
+              label="Golden Point"
+              desc="Sudden death at deuce"
+              on={golden}
+              onChange={() => setGolden((g) => !g)}
+            />
+            <ToggleRow
+              label="Speaker"
+              desc="Announce score out loud"
+              on={speaker}
+              onChange={() => setSpeaker((g) => !g)}
+            />
+          </div>
+
+          <p className="mt-auto text-center text-xs text-muted-foreground">
+            Stick the phone on the wall. Tap a team panel to score.
+          </p>
+        </>
+      ) : (
+        <HistoryView
+          records={history}
+          loading={loadingHistory}
+          loadingMore={loadingMore}
+          hasMore={!!cursor}
+          onLoadMore={loadMore}
         />
-        <ToggleRow
-          label="Speaker"
-          desc="Announce score out loud"
-          on={speaker}
-          onChange={() => setSpeaker((g) => !g)}
-        />
-      </div>
-
-      <p className="mt-auto text-center text-xs text-muted-foreground">
-        Stick the phone on the wall. Tap a team panel to score.
-      </p>
+      )}
     </div>
+  );
+}
+
+/* -------------------- History -------------------- */
+
+function fmtDate(d: Date) {
+  const date = d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+  const time = d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", hour12: true });
+  return `${date} · ${time}`;
+}
+
+function HistoryView({
+  records,
+  loading,
+  loadingMore,
+  hasMore,
+  onLoadMore,
+}: {
+  records: MatchRecord[];
+  loading: boolean;
+  loadingMore: boolean;
+  hasMore: boolean;
+  onLoadMore: () => void;
+}) {
+  if (loading) {
+    return (
+      <div className="flex flex-1 items-center justify-center py-16">
+        <p className="text-sm text-muted-foreground">Loading…</p>
+      </div>
+    );
+  }
+
+  if (records.length === 0) {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center gap-2 py-16">
+        <p className="text-base font-semibold">No matches yet</p>
+        <p className="text-center text-sm text-muted-foreground">
+          Completed matches will appear here.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-3 pb-8">
+      {records.map((r) => {
+        const winnerName = r.winner === "A" ? r.teamA.name : r.teamB.name;
+        const winnerColor = r.winner === "A" ? "var(--team-a)" : "var(--team-b-ink)";
+        return (
+          <div key={r.id} className="rounded-2xl bg-card p-4 ring-1 ring-border">
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                  {fmtDate(r.completedAt)} · {fmtElapsed(r.totalMs)} · Best of {r.bestOf}
+                </p>
+                <p className="mt-0.5 text-base font-bold" style={{ color: winnerColor }}>
+                  {winnerName} wins
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {r.teamA.name} vs {r.teamB.name}
+                </p>
+              </div>
+              <div className="score-num text-base tabular flex gap-2">
+                {r.sets.map(([a, b], i) => (
+                  <span key={i}>
+                    <span style={{ color: "var(--team-a)" }}>{a}</span>
+                    <span className="text-muted-foreground">-</span>
+                    <span style={{ color: "var(--team-b-ink)" }}>{b}</span>
+                  </span>
+                ))}
+              </div>
+            </div>
+            {(r.teamA.players.some(Boolean) || r.teamB.players.some(Boolean)) && (
+              <p className="mt-2 text-xs text-muted-foreground">
+                {[...r.teamA.players, ...r.teamB.players].filter(Boolean).join(" · ")}
+              </p>
+            )}
+            <div className="mt-2 flex gap-4 text-[10px] uppercase tracking-widest text-muted-foreground">
+              <span>Unforced <span style={{ color: "var(--team-a)" }}>{r.teamA.name}</span>: {r.unforced.A}</span>
+              <span>Unforced <span style={{ color: "var(--team-b-ink)" }}>{r.teamB.name}</span>: {r.unforced.B}</span>
+            </div>
+          </div>
+        );
+      })}
+      {hasMore && (
+        <button
+          onClick={onLoadMore}
+          disabled={loadingMore}
+          className="w-full rounded-2xl bg-muted py-3 text-sm font-semibold text-muted-foreground disabled:opacity-50"
+        >
+          {loadingMore ? "Loading…" : "Load more"}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function CopyButton({ text, compact, label }: { text: string; compact?: boolean; label?: string }) {
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const el = document.createElement("textarea");
+        el.value = text;
+        el.style.position = "fixed";
+        el.style.opacity = "0";
+        document.body.appendChild(el);
+        el.select();
+        document.execCommand("copy");
+        document.body.removeChild(el);
+      }
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {}
+  };
+  return (
+    <button
+      onClick={copy}
+      className={compact
+        ? "rounded-full bg-muted px-3 py-1.5 text-xs font-semibold text-primary transition"
+        : "mt-3 w-full rounded-xl bg-muted py-2.5 text-sm font-semibold text-foreground transition"}
+    >
+      {copied ? "Copied!" : (label ?? "Copy")}
+    </button>
   );
 }
 
@@ -402,7 +858,7 @@ function ToggleRow({
       >
         <span
           className={`absolute top-1 size-7 rounded-full bg-background shadow transition ${
-            on ? "left-[30px]" : "left-1"
+            on ? "left-7.5" : "left-1"
           }`}
         />
       </button>
@@ -455,7 +911,7 @@ function MatchView({
 
   return (
     <div className={`mx-auto flex min-h-dvh ${bigMode ? "max-w-2xl" : "max-w-md"} flex-col`}>
-      <div className="flex items-center justify-between gap-2 px-4 pt-4">
+      <div className="flex items-center justify-between gap-2 px-4 pt-safe">
         <div className="flex flex-col gap-0.5">
           <BrandMark size="sm" />
           <div className="flex items-center gap-2 text-[10px] uppercase tracking-widest text-muted-foreground">
@@ -770,7 +1226,7 @@ function TeamPanel({
           }}
           disabled={unforcedDisabled}
           aria-label="Add unforced error"
-          className={`flex flex-col items-center gap-1 rounded-2xl bg-background/90 ring-2 ring-border backdrop-blur transition active:scale-95 disabled:opacity-40 disabled:pointer-events-none ${big ? "min-w-[140px] px-5 py-5" : "min-w-[96px] px-4 py-3"}`}
+          className={`flex flex-col items-center gap-1 rounded-2xl bg-background/90 ring-2 ring-border backdrop-blur transition active:scale-95 disabled:opacity-40 disabled:pointer-events-none ${big ? "min-w-35 px-5 py-5" : "min-w-24 px-4 py-3"}`}
         >
           <span
             className={`font-semibold uppercase tracking-widest text-muted-foreground ${big ? "text-sm" : "text-xs"}`}
@@ -797,13 +1253,17 @@ function Summary({
   cfg,
   snapshot,
   setTimes,
+  saved,
+  saveError,
   onSave,
   onNew,
 }: {
   cfg: MatchConfig;
   snapshot: Snapshot;
   setTimes: SetTime[];
-  onSave: (c: MatchConfig) => void;
+  saved: boolean;
+  saveError?: string;
+  onSave: (c: MatchConfig) => Promise<void>;
   onNew: () => void;
 }) {
   const [aName, setAName] = useState(cfg.teamA.name);
@@ -812,6 +1272,9 @@ function Summary({
   const [bName, setBName] = useState(cfg.teamB.name);
   const [b1, setB1] = useState(cfg.teamB.players[0]);
   const [b2, setB2] = useState(cfg.teamB.players[1]);
+  const [saving, setSaving] = useState(false);
+  const [namesSaved, setNamesSaved] = useState(false);
+  const [errors, setErrors] = useState({ aName: "", bName: "" });
 
   const winner = snapshot.winner === "A" ? aName : bName;
   const totalMs = setTimes.reduce(
@@ -819,20 +1282,29 @@ function Summary({
     0,
   );
 
-  const save = () => {
-    onSave({
+  const save = async () => {
+    const errs = {
+      aName: aName.trim() ? "" : "Team A name is required",
+      bName: bName.trim() ? "" : "Team B name is required",
+    };
+    setErrors(errs);
+    if (errs.aName || errs.bName) return;
+    setSaving(true);
+    await onSave({
       ...cfg,
-      teamA: { name: aName.trim() || "Team A", players: [a1.trim(), a2.trim()] },
-      teamB: { name: bName.trim() || "Team B", players: [b1.trim(), b2.trim()] },
+      teamA: { name: aName.trim(), players: [a1.trim(), a2.trim()] },
+      teamB: { name: bName.trim(), players: [b1.trim(), b2.trim()] },
     });
+    setSaving(false);
+    setNamesSaved(true);
   };
 
   return (
-    <div className="mx-auto flex min-h-dvh max-w-md flex-col gap-5 px-5 py-8">
+    <div className="mx-auto flex min-h-dvh max-w-md flex-col gap-5 px-5 pb-8 pt-safe">
       <header>
         <p className="text-xs uppercase tracking-[0.25em] text-muted-foreground">Match complete</p>
         <h1 className="font-display text-3xl font-bold">
-          <span style={{ color: snapshot.winner === "A" ? "var(--team-a)" : "var(--team-b)" }}>
+          <span style={{ color: snapshot.winner === "A" ? "var(--team-a)" : "var(--team-b-ink)" }}>
             {winner}
           </span>{" "}
           wins
@@ -841,6 +1313,17 @@ function Summary({
           Total time {fmtElapsed(totalMs)} · {snapshot.sets.length} set
           {snapshot.sets.length !== 1 ? "s" : ""}
         </p>
+        {saved && (
+          <p className="mt-1 text-xs font-semibold text-primary">Saved to your history</p>
+        )}
+        {!saved && !saveError && (
+          <p className="mt-1 text-xs text-muted-foreground">Saving…</p>
+        )}
+        {saveError && (
+          <p className="mt-1 text-xs font-semibold text-destructive">
+            Save failed: {saveError}
+          </p>
+        )}
       </header>
 
       <div className="rounded-2xl bg-card p-4 ring-1 ring-border">
@@ -857,7 +1340,7 @@ function Summary({
                 <span className="score-num text-lg">
                   <span style={{ color: "var(--team-a)" }}>{s[0]}</span>
                   <span className="text-muted-foreground"> · </span>
-                  <span style={{ color: "var(--team-b)" }}>{s[1]}</span>
+                  <span style={{ color: "var(--team-b-ink)" }}>{s[1]}</span>
                 </span>
               </div>
             );
@@ -885,29 +1368,32 @@ function Summary({
         accent="team-a"
         title="Team A"
         nameValue={aName}
-        onName={setAName}
+        onName={(v) => { setAName(v); setErrors((e) => ({ ...e, aName: "" })); }}
         p1={a1}
         p2={a2}
         onP1={setA1}
         onP2={setA2}
+        error={errors.aName}
       />
       <NameCard
         accent="team-b"
         title="Team B"
         nameValue={bName}
-        onName={setBName}
+        onName={(v) => { setBName(v); setErrors((e) => ({ ...e, bName: "" })); }}
         p1={b1}
         p2={b2}
         onP1={setB1}
         onP2={setB2}
+        error={errors.bName}
       />
 
       <div className="mt-auto flex gap-2">
         <button
           onClick={save}
-          className="flex-1 rounded-2xl bg-muted py-4 text-sm font-bold text-foreground"
+          disabled={saving}
+          className="flex-1 rounded-2xl bg-muted py-4 text-sm font-bold text-foreground disabled:opacity-60"
         >
-          Save names
+          {saving ? "Saving…" : namesSaved ? "Names saved" : "Save names"}
         </button>
         <button
           onClick={onNew}
@@ -929,6 +1415,7 @@ function NameCard({
   p2,
   onP1,
   onP2,
+  error,
 }: {
   accent: "team-a" | "team-b";
   title: string;
@@ -938,19 +1425,23 @@ function NameCard({
   p2: string;
   onP1: (v: string) => void;
   onP2: (v: string) => void;
+  error?: string;
 }) {
   return (
     <div
       className="rounded-2xl bg-card p-4"
       style={{
-        boxShadow: `inset 0 0 0 1px color-mix(in oklab, var(--${accent}) 40%, transparent)`,
+        boxShadow: `inset 0 0 0 1px color-mix(in oklab, var(--${error ? "destructive" : accent}) 40%, transparent)`,
       }}
     >
-      <div className="mb-3 flex items-center gap-2">
-        <span className="size-2.5 rounded-full" style={{ background: `var(--${accent})` }} />
-        <p className="text-xs uppercase tracking-widest" style={{ color: `var(--${accent})` }}>
-          {title}
-        </p>
+      <div className="mb-3 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="size-2.5 rounded-full" style={{ background: `var(--${accent})` }} />
+          <p className="text-xs uppercase tracking-widest" style={{ color: `var(--${accent}-ink)` }}>
+            {title}
+          </p>
+        </div>
+        {error && <p className="text-xs text-destructive">{error}</p>}
       </div>
       <input
         value={nameValue}

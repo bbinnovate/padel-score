@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Background -->
+  <rect width="512" height="512" rx="112" fill="#0A0A0F"/>
+
+  <!-- Padel racket head (rounded rectangle) -->
+  <rect x="156" y="60" width="200" height="240" rx="100" fill="none" stroke="#DCFF1B" stroke-width="22"/>
+
+  <!-- Racket holes / perforations -->
+  <circle cx="216" cy="150" r="14" fill="#DCFF1B" opacity="0.7"/>
+  <circle cx="256" cy="150" r="14" fill="#DCFF1B" opacity="0.7"/>
+  <circle cx="296" cy="150" r="14" fill="#DCFF1B" opacity="0.7"/>
+  <circle cx="216" cy="200" r="14" fill="#DCFF1B" opacity="0.7"/>
+  <circle cx="256" cy="200" r="14" fill="#DCFF1B" opacity="0.7"/>
+  <circle cx="296" cy="200" r="14" fill="#DCFF1B" opacity="0.7"/>
+  <circle cx="216" cy="250" r="14" fill="#DCFF1B" opacity="0.7"/>
+  <circle cx="256" cy="250" r="14" fill="#DCFF1B" opacity="0.7"/>
+  <circle cx="296" cy="250" r="14" fill="#DCFF1B" opacity="0.7"/>
+
+  <!-- Racket handle -->
+  <rect x="236" y="300" width="40" height="130" rx="20" fill="#0047FF"/>
+  <rect x="242" y="300" width="28" height="130" rx="14" fill="#0047FF" stroke="#DCFF1B" stroke-width="4"/>
+
+  <!-- Grip wrap lines -->
+  <line x1="240" y1="355" x2="272" y2="355" stroke="#DCFF1B" stroke-width="5" stroke-linecap="round" opacity="0.6"/>
+  <line x1="240" y1="375" x2="272" y2="375" stroke="#DCFF1B" stroke-width="5" stroke-linecap="round" opacity="0.6"/>
+  <line x1="240" y1="395" x2="272" y2="395" stroke="#DCFF1B" stroke-width="5" stroke-linecap="round" opacity="0.6"/>
+
+  <!-- Padel ball (top right) -->
+  <circle cx="390" cy="100" r="42" fill="#0047FF"/>
+  <circle cx="390" cy="100" r="36" fill="none" stroke="#DCFF1B" stroke-width="7"/>
+  <!-- Ball seam -->
+  <path d="M 358 100 Q 390 72 422 100" fill="none" stroke="#0A0A0F" stroke-width="5" stroke-linecap="round"/>
+  <path d="M 358 100 Q 390 128 422 100" fill="none" stroke="#0A0A0F" stroke-width="5" stroke-linecap="round"/>
+</svg>

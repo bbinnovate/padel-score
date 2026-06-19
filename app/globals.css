@@ -73,6 +73,9 @@
     font-family: var(--font-display);
     -webkit-font-smoothing: antialiased;
     overscroll-behavior: none;
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+    padding-bottom: env(safe-area-inset-bottom);
   }
   button {
     -webkit-tap-highlight-color: transparent;
@@ -80,6 +83,9 @@
 }
 
 @layer utilities {
+  .pt-safe {
+    padding-top: max(env(safe-area-inset-top), 2rem);
+  }
   .tabular {
     font-variant-numeric: tabular-nums;
     font-feature-settings: "tnum";

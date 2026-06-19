@@ -1,0 +1,26 @@
+{
+  "name": "Padel Score",
+  "short_name": "Padel Score",
+  "description": "Live padel match scorer — track points, sets and unforced errors.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#0047FF",
+  "background_color": "#F4F2EC",
+  "icons": [
+    {
+      "src": "/icon",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/apple-icon",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "categories": ["sports", "utilities"]
+}
