@@ -1,4 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router";
+"use client";
+
 import { useEffect, useMemo, useState } from "react";
 import confetti from "canvas-confetti";
 import {
@@ -51,34 +52,32 @@ function celebrateMatch(team: TeamId) {
   });
   const end = Date.now() + 2200;
   const frame = () => {
-    confetti({ particleCount: 8, angle: 60, spread: 80, origin: { x: 0, y: 0.85 }, colors: palette });
-    confetti({ particleCount: 8, angle: 120, spread: 80, origin: { x: 1, y: 0.85 }, colors: palette });
+    confetti({
+      particleCount: 8,
+      angle: 60,
+      spread: 80,
+      origin: { x: 0, y: 0.85 },
+      colors: palette,
+    });
+    confetti({
+      particleCount: 8,
+      angle: 120,
+      spread: 80,
+      origin: { x: 1, y: 0.85 },
+      colors: palette,
+    });
     if (Date.now() < end) requestAnimationFrame(frame);
   };
   frame();
 }
 
-export const Route = createFileRoute("/")({
-  component: Index,
-  head: () => ({
-    meta: [
-      { title: "Padel · Courtside / withPri" },
-      {
-        name: "description",
-        content:
-          "Minimal padel scorekeeper for friendly matches. Track points, sets, set times and unforced errors with voice announcements.",
-      },
-    ],
-  }),
-});
-
 type Screen = "setup" | "match" | "summary";
 
 interface SetTime {
-  start: number; // epoch ms
+  start: number;
   end?: number;
-  pausedAccum: number; // ms accumulated while paused
-  pauseStart?: number; // epoch when pause began
+  pausedAccum: number;
+  pauseStart?: number;
 }
 
 interface Stored {
@@ -91,7 +90,7 @@ interface Stored {
 
 const STORAGE_KEY = "padel-match-v2";
 
-function Index() {
+export default function Home() {
   const [screen, setScreen] = useState<Screen>("setup");
   const [cfg, setCfg] = useState<MatchConfig | null>(null);
   const [history, setHistory] = useState<Snapshot[]>([initialSnapshot()]);
@@ -99,7 +98,6 @@ function Index() {
   const [speakerOn, setSpeakerOn] = useState(true);
   const [bigMode, setBigMode] = useState(false);
 
-  // Hydrate
   useEffect(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
@@ -116,15 +114,16 @@ function Index() {
     } catch {}
   }, []);
 
-  // Persist
   useEffect(() => {
     if (cfg) {
       localStorage.setItem(
         STORAGE_KEY,
-        JSON.stringify({ cfg, history, setTimes, speakerOn, screen, bigMode } as Stored & { bigMode: boolean }),
+        JSON.stringify({ cfg, history, setTimes, speakerOn, screen, bigMode } as Stored & {
+          bigMode: boolean;
+        }),
       );
     }
-  }, [cfg, history, setTimes, speakerOn, screen]);
+  }, [cfg, history, setTimes, speakerOn, screen, bigMode]);
 
   const snapshot = history[history.length - 1];
   const prevSnapshot = history.length > 1 ? history[history.length - 2] : null;
@@ -148,16 +147,12 @@ function Index() {
       const prev = h[h.length - 1];
       const next = awardPoint(prev, team, cfg);
 
-      // Set timer bookkeeping
       setSetTimes((times) => {
         const t = [...times];
-        const currentSetIdx = next.sets.length; // index of current (or just-completed) set
-        // First point of a set: start timer if not started
-        const activeIdx = prev.sets.length; // set index BEFORE this point
+        const activeIdx = prev.sets.length;
         if (!t[activeIdx]) {
           t[activeIdx] = { start: Date.now(), pausedAccum: 0 };
         }
-        // If a set just finalized, close that timer
         if (next.sets.length > prev.sets.length) {
           const idx = prev.sets.length;
           if (t[idx] && !t[idx].end) {
@@ -167,10 +162,8 @@ function Index() {
         return t;
       });
 
-      // Voice
       if (speakerOn) speakScore(next, cfg, team);
 
-      // Haptics + celebrations
       if (next.matchOver) {
         haptic([60, 40, 60, 40, 200]);
         celebrateMatch(next.winner ?? team);
@@ -211,7 +204,6 @@ function Index() {
       const cur = t[idx];
       if (!cur || cur.end) return times;
       if (cur.pauseStart) {
-        // resume
         t[idx] = {
           ...cur,
           pausedAccum: cur.pausedAccum + (Date.now() - cur.pauseStart),
@@ -274,11 +266,9 @@ function speakScore(s: Snapshot, cfg: MatchConfig, scorer: TeamId) {
     if (s.inTiebreak) {
       phrase = `${teamLabel} scores. Tiebreak ${disp.A} ${disp.B}.`;
     } else if (s.points.A === 0 && s.points.B === 0) {
-      // game just ended
       phrase = `Game ${teamLabel}. ${s.games.A} ${s.games.B}.`;
     } else {
-      const said = (v: string) =>
-        v === "0" ? "love" : v === "AD" ? "advantage" : v;
+      const said = (v: string) => (v === "0" ? "love" : v === "AD" ? "advantage" : v);
       phrase = `${teamLabel}, ${said(scorer === "A" ? disp.A : disp.B)} ${said(
         scorer === "A" ? disp.B : disp.A,
       )}`;
@@ -316,22 +306,16 @@ function Setup({
 
       <div>
         <h1 className="font-display text-4xl font-extrabold tracking-tight">New match</h1>
-        <p className="mt-1 text-base text-muted-foreground">
-          Pick a format. Add names later.
-        </p>
+        <p className="mt-1 text-base text-muted-foreground">Pick a format. Add names later.</p>
       </div>
 
       <div className="flex flex-col gap-4">
-        <p className="text-xs uppercase tracking-widest text-muted-foreground">
-          Format
-        </p>
+        <p className="text-xs uppercase tracking-widest text-muted-foreground">Format</p>
         <button
           onClick={() => onStart(3, golden, speaker)}
           className="rounded-3xl bg-primary px-7 py-10 text-left text-primary-foreground shadow-[0_10px_40px_-10px_var(--primary)] active:scale-[0.99] transition"
         >
-          <p className="text-xs font-bold uppercase tracking-[0.25em] opacity-80">
-            Standard
-          </p>
+          <p className="text-xs font-bold uppercase tracking-[0.25em] opacity-80">Standard</p>
           <p className="font-display text-4xl font-extrabold">Best of 3</p>
           <p className="mt-1 text-base opacity-90">First to 2 sets wins</p>
         </button>
@@ -344,9 +328,7 @@ function Setup({
             boxShadow: "0 10px 40px -10px var(--accent)",
           }}
         >
-          <p className="text-xs font-bold uppercase tracking-[0.25em] opacity-80">
-            Long
-          </p>
+          <p className="text-xs font-bold uppercase tracking-[0.25em] opacity-80">Long</p>
           <p className="font-display text-4xl font-extrabold">Best of 5</p>
           <p className="mt-1 text-base opacity-90">First to 3 sets wins</p>
         </button>
@@ -378,10 +360,7 @@ function BrandMark({ size = "md" }: { size?: "sm" | "md" }) {
   const big = size === "md";
   return (
     <div className={big ? "leading-tight" : "leading-tight text-sm"}>
-      <p
-        className="brand-wordmark"
-        style={{ fontSize: big ? "1.4rem" : "0.95rem" }}
-      >
+      <p className="brand-wordmark" style={{ fontSize: big ? "1.4rem" : "0.95rem" }}>
         Padel<span style={{ color: "var(--primary)" }}> · </span>Courtside
       </p>
       <p
@@ -418,9 +397,7 @@ function ToggleRow({
       </div>
       <button
         onClick={onChange}
-        className={`relative h-9 w-16 rounded-full transition ${
-          on ? "bg-primary" : "bg-border"
-        }`}
+        className={`relative h-9 w-16 rounded-full transition ${on ? "bg-primary" : "bg-border"}`}
         aria-pressed={on}
       >
         <span
@@ -478,7 +455,6 @@ function MatchView({
 
   return (
     <div className={`mx-auto flex min-h-dvh ${bigMode ? "max-w-2xl" : "max-w-md"} flex-col`}>
-      {/* Top bar */}
       <div className="flex items-center justify-between gap-2 px-4 pt-4">
         <div className="flex flex-col gap-0.5">
           <BrandMark size="sm" />
@@ -516,7 +492,6 @@ function MatchView({
         </div>
       </div>
 
-      {/* Set timer + history strip */}
       <div className="flex items-stretch gap-2 px-4 pt-3">
         <SetTimerCard
           timer={currentTimer}
@@ -528,7 +503,6 @@ function MatchView({
         <SetStrip snapshot={snapshot} setTimes={setTimes} big={bigMode} />
       </div>
 
-      {/* Teams */}
       <div className="grid flex-1 grid-cols-1 gap-3 px-4 pb-4 pt-3">
         <TeamPanel
           accent="team-a"
@@ -577,9 +551,7 @@ function IconBtn({
       onClick={onClick}
       aria-label={label}
       className={`grid size-11 place-items-center rounded-full text-lg transition ${
-        active
-          ? "bg-primary text-primary-foreground"
-          : "bg-muted text-muted-foreground"
+        active ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
       }`}
     >
       {children}
@@ -628,13 +600,17 @@ function SetTimerCard({
       disabled={disabled || !timer}
       className={`flex flex-col items-start justify-center rounded-2xl bg-card text-left ring-1 ring-border disabled:opacity-60 ${big ? "px-5 py-3" : "px-3 py-2"}`}
     >
-      <span className={`uppercase tracking-widest text-muted-foreground ${big ? "text-xs" : "text-[9px]"}`}>
+      <span
+        className={`uppercase tracking-widest text-muted-foreground ${big ? "text-xs" : "text-[9px]"}`}
+      >
         Set {setIdx + 1} {paused ? "· paused" : timer ? "· live" : ""}
       </span>
       <span className={`score-num ${big ? "text-2xl" : "text-base"}`}>
         {timer ? fmtElapsed(elapsed) : "0:00"}
       </span>
-      <span className={`uppercase tracking-widest text-muted-foreground ${big ? "text-[10px]" : "text-[9px]"}`}>
+      <span
+        className={`uppercase tracking-widest text-muted-foreground ${big ? "text-[10px]" : "text-[9px]"}`}
+      >
         {!timer ? "Tap a team to start" : paused ? "Tap to resume" : "Tap to pause"}
       </span>
     </button>
@@ -657,16 +633,19 @@ function SetStrip({
     duration?: string;
   }> = snapshot.sets.map((s, i) => {
     const t = setTimes[i];
-    const dur =
-      t && t.end ? fmtElapsed(t.end - t.start - t.pausedAccum) : undefined;
+    const dur = t && t.end ? fmtElapsed(t.end - t.start - t.pausedAccum) : undefined;
     return { a: s[0], b: s[1], duration: dur };
   });
   if (!snapshot.matchOver) {
     cells.push({ a: snapshot.games.A, b: snapshot.games.B, live: true });
   }
   return (
-    <div className={`flex flex-1 items-center gap-2 overflow-x-auto rounded-2xl bg-card ring-1 ring-border ${big ? "p-3" : "p-2"}`}>
-      <div className={`flex flex-col gap-1 pr-1 uppercase tracking-widest font-extrabold ${big ? "text-sm" : "text-[9px]"}`}>
+    <div
+      className={`flex flex-1 items-center gap-2 overflow-x-auto rounded-2xl bg-card ring-1 ring-border ${big ? "p-3" : "p-2"}`}
+    >
+      <div
+        className={`flex flex-col gap-1 pr-1 uppercase tracking-widest font-extrabold ${big ? "text-sm" : "text-[9px]"}`}
+      >
         <span style={{ color: "var(--team-a-ink)" }}>A</span>
         <span style={{ color: "var(--team-b-ink)" }}>B</span>
       </div>
@@ -677,14 +656,22 @@ function SetStrip({
             c.live ? "bg-muted" : ""
           }`}
         >
-          <span className={`score-num ${big ? "text-xl" : "text-sm"}`} style={{ color: "var(--team-a-ink)" }}>
+          <span
+            className={`score-num ${big ? "text-xl" : "text-sm"}`}
+            style={{ color: "var(--team-a-ink)" }}
+          >
             {c.a}
           </span>
-          <span className={`score-num ${big ? "text-xl" : "text-sm"}`} style={{ color: "var(--team-b-ink)" }}>
+          <span
+            className={`score-num ${big ? "text-xl" : "text-sm"}`}
+            style={{ color: "var(--team-b-ink)" }}
+          >
             {c.b}
           </span>
           {c.duration && (
-            <span className={`text-muted-foreground ${big ? "text-[10px]" : "text-[8px]"}`}>{c.duration}</span>
+            <span className={`text-muted-foreground ${big ? "text-[10px]" : "text-[8px]"}`}>
+              {c.duration}
+            </span>
           )}
         </div>
       ))}
@@ -745,12 +732,20 @@ function TeamPanel({
           >
             {name}
           </p>
-          <div className={`mt-1.5 flex gap-4 uppercase tracking-widest text-muted-foreground ${big ? "text-base" : "text-xs"}`}>
+          <div
+            className={`mt-1.5 flex gap-4 uppercase tracking-widest text-muted-foreground ${big ? "text-base" : "text-xs"}`}
+          >
             <span>
-              Sets <span className={`score-num text-foreground ${big ? "text-2xl" : "text-base"}`}>{setsWon}</span>
+              Sets{" "}
+              <span className={`score-num text-foreground ${big ? "text-2xl" : "text-base"}`}>
+                {setsWon}
+              </span>
             </span>
             <span>
-              Games <span className={`score-num text-foreground ${big ? "text-2xl" : "text-base"}`}>{games}</span>
+              Games{" "}
+              <span className={`score-num text-foreground ${big ? "text-2xl" : "text-base"}`}>
+                {games}
+              </span>
             </span>
           </div>
         </div>
@@ -760,9 +755,7 @@ function TeamPanel({
         <p
           className="score-num leading-none"
           style={{
-            fontSize: big
-              ? "clamp(8rem, 36vw, 14rem)"
-              : "clamp(5.5rem, 26vw, 9.5rem)",
+            fontSize: big ? "clamp(8rem, 36vw, 14rem)" : "clamp(5.5rem, 26vw, 9.5rem)",
             color: inkVar,
             textShadow: `0 0 40px color-mix(in oklab, var(--${accent}) 60%, transparent)`,
           }}
@@ -779,11 +772,17 @@ function TeamPanel({
           aria-label="Add unforced error"
           className={`flex flex-col items-center gap-1 rounded-2xl bg-background/90 ring-2 ring-border backdrop-blur transition active:scale-95 disabled:opacity-40 disabled:pointer-events-none ${big ? "min-w-[140px] px-5 py-5" : "min-w-[96px] px-4 py-3"}`}
         >
-          <span className={`font-semibold uppercase tracking-widest text-muted-foreground ${big ? "text-sm" : "text-xs"}`}>
+          <span
+            className={`font-semibold uppercase tracking-widest text-muted-foreground ${big ? "text-sm" : "text-xs"}`}
+          >
             Unforced
           </span>
-          <span className={`score-num text-destructive ${big ? "text-5xl" : "text-3xl"}`}>{unforced}</span>
-          <span className={`font-extrabold tracking-wider text-destructive ${big ? "text-sm" : "text-xs"}`}>
+          <span className={`score-num text-destructive ${big ? "text-5xl" : "text-3xl"}`}>
+            {unforced}
+          </span>
+          <span
+            className={`font-extrabold tracking-wider text-destructive ${big ? "text-sm" : "text-xs"}`}
+          >
             + TAP
           </span>
         </button>
@@ -831,9 +830,7 @@ function Summary({
   return (
     <div className="mx-auto flex min-h-dvh max-w-md flex-col gap-5 px-5 py-8">
       <header>
-        <p className="text-xs uppercase tracking-[0.25em] text-muted-foreground">
-          Match complete
-        </p>
+        <p className="text-xs uppercase tracking-[0.25em] text-muted-foreground">Match complete</p>
         <h1 className="font-display text-3xl font-bold">
           <span style={{ color: snapshot.winner === "A" ? "var(--team-a)" : "var(--team-b)" }}>
             {winner}
@@ -847,9 +844,7 @@ function Summary({
       </header>
 
       <div className="rounded-2xl bg-card p-4 ring-1 ring-border">
-        <p className="mb-2 text-xs uppercase tracking-widest text-muted-foreground">
-          Score
-        </p>
+        <p className="mb-2 text-xs uppercase tracking-widest text-muted-foreground">Score</p>
         <div className="flex flex-col gap-2">
           {snapshot.sets.map((s, i) => {
             const t = setTimes[i];
@@ -873,24 +868,18 @@ function Summary({
             <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
               Unforced A
             </p>
-            <p className="score-num text-xl text-destructive">
-              {snapshot.unforced.A}
-            </p>
+            <p className="score-num text-xl text-destructive">{snapshot.unforced.A}</p>
           </div>
           <div>
             <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
               Unforced B
             </p>
-            <p className="score-num text-xl text-destructive">
-              {snapshot.unforced.B}
-            </p>
+            <p className="score-num text-xl text-destructive">{snapshot.unforced.B}</p>
           </div>
         </div>
       </div>
 
-      <p className="text-xs uppercase tracking-widest text-muted-foreground">
-        Log who played
-      </p>
+      <p className="text-xs uppercase tracking-widest text-muted-foreground">Log who played</p>
 
       <NameCard
         accent="team-a"
@@ -958,14 +947,8 @@ function NameCard({
       }}
     >
       <div className="mb-3 flex items-center gap-2">
-        <span
-          className="size-2.5 rounded-full"
-          style={{ background: `var(--${accent})` }}
-        />
-        <p
-          className="text-xs uppercase tracking-widest"
-          style={{ color: `var(--${accent})` }}
-        >
+        <span className="size-2.5 rounded-full" style={{ background: `var(--${accent})` }} />
+        <p className="text-xs uppercase tracking-widest" style={{ color: `var(--${accent})` }}>
           {title}
         </p>
       </div>

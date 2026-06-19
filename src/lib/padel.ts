@@ -54,11 +54,7 @@ function setsToWin(bestOf: number) {
   return Math.ceil(bestOf / 2);
 }
 
-export function awardPoint(
-  prev: Snapshot,
-  team: TeamId,
-  cfg: MatchConfig
-): Snapshot {
+export function awardPoint(prev: Snapshot, team: TeamId, cfg: MatchConfig): Snapshot {
   if (prev.matchOver) return prev;
   const s: Snapshot = {
     ...prev,
