@@ -352,12 +352,18 @@ function InstallModal() {
     const isAndroid = /android/i.test(ua);
 
     if (isIOS) {
-      setTimeout(() => { setPlatform("ios"); setShow(true); }, 2000);
+      setTimeout(() => {
+        setPlatform("ios");
+        setShow(true);
+      }, 2000);
     } else if (isAndroid) {
       const handler = (e: Event) => {
         e.preventDefault();
         setDeferredPrompt(e);
-        setTimeout(() => { setPlatform("android"); setShow(true); }, 2000);
+        setTimeout(() => {
+          setPlatform("android");
+          setShow(true);
+        }, 2000);
       };
       window.addEventListener("beforeinstallprompt", handler);
       return () => window.removeEventListener("beforeinstallprompt", handler);
@@ -435,7 +441,7 @@ function InstallModal() {
             onClick={() => dismiss(true)}
             className="flex-1 rounded-2xl bg-muted py-3 text-sm font-semibold text-muted-foreground"
           >
-            Don't show again
+            Don&apos;t show again
           </button>
         </div>
       </div>
@@ -690,7 +696,11 @@ function Setup({
 
 function fmtDate(d: Date) {
   const date = d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
-  const time = d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", hour12: true });
+  const time = d.toLocaleTimeString(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
   return `${date} · ${time}`;
 }
 
@@ -761,8 +771,14 @@ function HistoryView({
               </p>
             )}
             <div className="mt-2 flex gap-4 text-[10px] uppercase tracking-widest text-muted-foreground">
-              <span>Unforced <span style={{ color: "var(--team-a)" }}>{r.teamA.name}</span>: {r.unforced.A}</span>
-              <span>Unforced <span style={{ color: "var(--team-b-ink)" }}>{r.teamB.name}</span>: {r.unforced.B}</span>
+              <span>
+                Unforced <span style={{ color: "var(--team-a)" }}>{r.teamA.name}</span>:{" "}
+                {r.unforced.A}
+              </span>
+              <span>
+                Unforced <span style={{ color: "var(--team-b-ink)" }}>{r.teamB.name}</span>:{" "}
+                {r.unforced.B}
+              </span>
             </div>
           </div>
         );
@@ -803,9 +819,11 @@ function CopyButton({ text, compact, label }: { text: string; compact?: boolean;
   return (
     <button
       onClick={copy}
-      className={compact
-        ? "rounded-full bg-muted px-3 py-1.5 text-xs font-semibold text-primary transition"
-        : "mt-3 w-full rounded-xl bg-muted py-2.5 text-sm font-semibold text-foreground transition"}
+      className={
+        compact
+          ? "rounded-full bg-muted px-3 py-1.5 text-xs font-semibold text-primary transition"
+          : "mt-3 w-full rounded-xl bg-muted py-2.5 text-sm font-semibold text-foreground transition"
+      }
     >
       {copied ? "Copied!" : (label ?? "Copy")}
     </button>
@@ -1313,16 +1331,10 @@ function Summary({
           Total time {fmtElapsed(totalMs)} · {snapshot.sets.length} set
           {snapshot.sets.length !== 1 ? "s" : ""}
         </p>
-        {saved && (
-          <p className="mt-1 text-xs font-semibold text-primary">Saved to your history</p>
-        )}
-        {!saved && !saveError && (
-          <p className="mt-1 text-xs text-muted-foreground">Saving…</p>
-        )}
+        {saved && <p className="mt-1 text-xs font-semibold text-primary">Saved to your history</p>}
+        {!saved && !saveError && <p className="mt-1 text-xs text-muted-foreground">Saving…</p>}
         {saveError && (
-          <p className="mt-1 text-xs font-semibold text-destructive">
-            Save failed: {saveError}
-          </p>
+          <p className="mt-1 text-xs font-semibold text-destructive">Save failed: {saveError}</p>
         )}
       </header>
 
@@ -1368,7 +1380,10 @@ function Summary({
         accent="team-a"
         title="Team A"
         nameValue={aName}
-        onName={(v) => { setAName(v); setErrors((e) => ({ ...e, aName: "" })); }}
+        onName={(v) => {
+          setAName(v);
+          setErrors((e) => ({ ...e, aName: "" }));
+        }}
         p1={a1}
         p2={a2}
         onP1={setA1}
@@ -1379,7 +1394,10 @@ function Summary({
         accent="team-b"
         title="Team B"
         nameValue={bName}
-        onName={(v) => { setBName(v); setErrors((e) => ({ ...e, bName: "" })); }}
+        onName={(v) => {
+          setBName(v);
+          setErrors((e) => ({ ...e, bName: "" }));
+        }}
         p1={b1}
         p2={b2}
         onP1={setB1}
@@ -1437,7 +1455,10 @@ function NameCard({
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="size-2.5 rounded-full" style={{ background: `var(--${accent})` }} />
-          <p className="text-xs uppercase tracking-widest" style={{ color: `var(--${accent}-ink)` }}>
+          <p
+            className="text-xs uppercase tracking-widest"
+            style={{ color: `var(--${accent}-ink)` }}
+          >
             {title}
           </p>
         </div>

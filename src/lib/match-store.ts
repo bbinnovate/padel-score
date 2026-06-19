@@ -32,7 +32,10 @@ export interface MatchRecord {
 }
 
 // Firestore doesn't support nested arrays — store sets as {a, b} objects
-interface SetScore { a: number; b: number }
+interface SetScore {
+  a: number;
+  b: number;
+}
 
 interface RawRecord {
   playerCode: string;
@@ -106,7 +109,11 @@ export async function loadMatches(
   playerCode: string,
   after?: QueryDocumentSnapshot<DocumentData> | null,
 ): Promise<MatchPage> {
-  const base = query(matchesCollection(playerCode), orderBy("completedAt", "desc"), limit(PAGE_SIZE));
+  const base = query(
+    matchesCollection(playerCode),
+    orderBy("completedAt", "desc"),
+    limit(PAGE_SIZE),
+  );
   const q = after ? query(base, startAfter(after)) : base;
   const snap = await getDocs(q);
   const lastDoc = snap.docs.length === PAGE_SIZE ? snap.docs[snap.docs.length - 1] : null;
