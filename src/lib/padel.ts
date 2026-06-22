@@ -7,6 +7,14 @@ export interface MatchConfig {
   teamB: { name: string; players: [string, string]; playerLevels?: [string, string] };
   bestOf: 1 | 3 | 5;
   goldenPoint: boolean;
+  initialServer: TeamId;
+}
+
+/** Returns which team is currently serving based on total games completed. */
+export function currentServer(cfg: MatchConfig, s: Snapshot): TeamId {
+  const totalGames =
+    s.sets.reduce((sum, [a, b]) => sum + a + b, 0) + s.games.A + s.games.B;
+  return totalGames % 2 === 0 ? cfg.initialServer : (cfg.initialServer === "A" ? "B" : "A");
 }
 
 export interface Snapshot {

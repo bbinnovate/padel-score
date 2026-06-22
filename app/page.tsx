@@ -8,6 +8,7 @@ import {
   awardPoint,
   initialSnapshot,
   pointDisplay,
+  currentServer,
   type MatchConfig,
   type Snapshot,
   type TeamId,
@@ -153,12 +154,18 @@ export default function Home() {
   const snapshot = history[history.length - 1];
   const prevSnapshot = history.length > 1 ? history[history.length - 2] : null;
 
-  const startMatch = (bestOf: 3 | 5, goldenPoint: boolean, speaker: boolean) => {
+  const startMatch = (
+    bestOf: 3 | 5,
+    goldenPoint: boolean,
+    speaker: boolean,
+    initialServer: TeamId,
+  ) => {
     setCfg({
       teamA: { name: "Team A", players: ["", ""] },
       teamB: { name: "Team B", players: ["", ""] },
       bestOf,
       goldenPoint,
+      initialServer,
     });
     setHistory([initialSnapshot()]);
     setSetTimes([]);
@@ -460,9 +467,6 @@ function InstallModal() {
 /* -------------------- Voice -------------------- */
 
 const PT = ["love", "fifteen", "thirty", "forty"] as const;
-const GM = ["love", "one", "two", "three", "four", "five", "six", "seven"] as const;
-const gw = (n: number) => GM[n] ?? String(n);
-const SET_ORD = ["first", "second", "third", "fourth", "fifth"] as const;
 
 function speakScore(s: Snapshot, cfg: MatchConfig, scorer: TeamId, prev: Snapshot) {
   if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
@@ -470,33 +474,25 @@ function speakScore(s: Snapshot, cfg: MatchConfig, scorer: TeamId, prev: Snapsho
   const nameA = cfg.teamA.name;
   const nameB = cfg.teamB.name;
   const scorerName = scorer === "A" ? nameA : nameB;
+  // Always announce server's score first, receiver's second
+  const server = currentServer(cfg, s);
   let phrase = "";
 
   if (s.matchOver) {
     const winner = s.winner === "A" ? nameA : nameB;
-    const lastSet = s.sets[s.sets.length - 1];
-    phrase = `Game, set and match, ${winner}. ${gw(lastSet[0])} games to ${gw(lastSet[1])}.`;
+    phrase = `Match ${winner}.`;
   } else if (s.inTiebreak && prev.inTiebreak) {
-    // Mid-tiebreak — scorer's count first
-    const my = scorer === "A" ? s.points.A : s.points.B;
-    const their = scorer === "A" ? s.points.B : s.points.A;
-    phrase = my === their ? `${my} all.` : `${my} ${their}.`;
+    // Tiebreak — server's count first
+    const svr = server === "A" ? s.points.A : s.points.B;
+    const rcv = server === "A" ? s.points.B : s.points.A;
+    phrase = svr === rcv ? `${svr} all.` : `${svr} ${rcv}.`;
   } else if (s.points.A === 0 && s.points.B === 0 && !s.inTiebreak) {
-    // A set or game just finished
     const setJustWon = s.sets.length > prev.sets.length;
     if (setJustWon) {
-      const setNum = prev.sets.length; // 0-indexed set that just finished
-      const wonSet = prev.sets[setNum] ?? s.sets[s.sets.length - 1];
-      const ord = SET_ORD[setNum] ?? `set ${setNum + 1}`;
-      phrase = `Game and ${ord} set, ${scorerName}. ${gw(wonSet[0])} games to ${gw(wonSet[1])}.`;
+      const setNum = s.sets.length; // sets array already updated
+      phrase = `Set ${setNum} ${scorerName}.`;
     } else {
-      // Game won within a set
-      const gA = s.games.A;
-      const gB = s.games.B;
-      phrase =
-        gA === gB
-          ? `Game, ${scorerName}. ${gw(gA)} all.`
-          : `Game, ${scorerName}. ${gw(gA)} ${gw(gB)}.`;
+      phrase = `Game ${scorerName}.`;
     }
   } else if (!s.inTiebreak) {
     const { A, B } = s.points;
@@ -508,11 +504,12 @@ function speakScore(s: Snapshot, cfg: MatchConfig, scorer: TeamId, prev: Snapsho
         phrase = `Advantage ${advName}.`;
       }
     } else {
-      const my = scorer === "A" ? A : B;
-      const their = scorer === "A" ? B : A;
-      const myW = PT[Math.min(my, 3)];
-      const theirW = PT[Math.min(their, 3)];
-      phrase = my === their ? `${myW} all.` : `${myW} ${theirW}.`;
+      // Server's score first, receiver's second
+      const svr = server === "A" ? A : B;
+      const rcv = server === "A" ? B : A;
+      const svrW = PT[Math.min(svr, 3)];
+      const rcvW = PT[Math.min(rcv, 3)];
+      phrase = svr === rcv ? `${svrW} all.` : `${svrW} ${rcvW}.`;
     }
   }
 
@@ -537,7 +534,7 @@ function Setup({
   onCodeChange,
   onRestoreCode,
 }: {
-  onStart: (bestOf: 3 | 5, golden: boolean, speaker: boolean) => void;
+  onStart: (bestOf: 3 | 5, golden: boolean, speaker: boolean, initialServer: TeamId) => void;
   initialSpeaker: boolean;
   playerCode: string;
   onCodeChange: (code: string) => void;
@@ -684,7 +681,7 @@ function Setup({
           <div className="flex flex-col gap-4">
             <p className="text-xs uppercase tracking-widest text-muted-foreground">Format</p>
             <button
-              onClick={() => onStart(3, golden, speaker)}
+              onClick={() => onStart(3, golden, speaker, "A")}
               className="rounded-3xl bg-primary px-7 py-10 text-left text-primary-foreground shadow-[0_10px_40px_-10px_var(--primary)] active:scale-[0.99] transition"
             >
               <p className="text-xs font-bold uppercase tracking-[0.25em] opacity-80">Standard</p>
@@ -692,7 +689,7 @@ function Setup({
               <p className="mt-1 text-base opacity-90">First to 2 sets wins</p>
             </button>
             <button
-              onClick={() => onStart(5, golden, speaker)}
+              onClick={() => onStart(5, golden, speaker, "A")}
               className="rounded-3xl px-7 py-10 text-left active:scale-[0.99] transition"
               style={{
                 background: "var(--accent)",
@@ -785,8 +782,6 @@ function HistoryView({
   return (
     <div className="flex flex-col gap-3 pb-8">
       {records.map((r) => {
-        const winnerName = r.winner === "A" ? r.teamA.name : r.teamB.name;
-        const winnerColor = r.winner === "A" ? "var(--team-a)" : "var(--team-b-ink)";
         return (
           <div key={r.id} className="rounded-2xl bg-card p-4 ring-1 ring-border">
             {/* Top meta row */}
@@ -1081,32 +1076,26 @@ function MatchView({
       </div>
 
       <div className="grid flex-1 grid-cols-1 gap-3 px-4 pb-4 pt-3">
-        <TeamPanel
-          accent="team-a"
-          name={cfg.teamA.name}
-          point={points.A}
-          games={snapshot.games.A}
-          setsWon={snapshot.setsWon.A}
-          unforced={snapshot.unforced.A}
-          disabled={snapshot.matchOver}
-          unforcedDisabled={!matchStarted || snapshot.matchOver || !canAddUnforced(snapshot, "A")}
-          big={bigMode}
-          onPoint={() => onPoint("A")}
-          onUnforced={() => onUnforced("A")}
-        />
-        <TeamPanel
-          accent="team-b"
-          name={cfg.teamB.name}
-          point={points.B}
-          games={snapshot.games.B}
-          setsWon={snapshot.setsWon.B}
-          unforced={snapshot.unforced.B}
-          disabled={snapshot.matchOver}
-          unforcedDisabled={!matchStarted || snapshot.matchOver || !canAddUnforced(snapshot, "B")}
-          big={bigMode}
-          onPoint={() => onPoint("B")}
-          onUnforced={() => onUnforced("B")}
-        />
+        {(["A", "B"] as const).map((t) => {
+          const serving = currentServer(cfg, snapshot) === t;
+          return (
+            <TeamPanel
+              key={t}
+              accent={t === "A" ? "team-a" : "team-b"}
+              name={t === "A" ? cfg.teamA.name : cfg.teamB.name}
+              point={t === "A" ? points.A : points.B}
+              games={t === "A" ? snapshot.games.A : snapshot.games.B}
+              setsWon={t === "A" ? snapshot.setsWon.A : snapshot.setsWon.B}
+              unforced={t === "A" ? snapshot.unforced.A : snapshot.unforced.B}
+              disabled={snapshot.matchOver}
+              unforcedDisabled={!matchStarted || snapshot.matchOver || !canAddUnforced(snapshot, t)}
+              big={bigMode}
+              serving={serving && !snapshot.matchOver}
+              onPoint={() => onPoint(t)}
+              onUnforced={() => onUnforced(t)}
+            />
+          );
+        })}
       </div>
     </div>
   );
@@ -1266,6 +1255,7 @@ function TeamPanel({
   disabled,
   unforcedDisabled,
   big,
+  serving,
   onPoint,
   onUnforced,
 }: {
@@ -1278,6 +1268,7 @@ function TeamPanel({
   disabled: boolean;
   unforcedDisabled?: boolean;
   big?: boolean;
+  serving?: boolean;
   onPoint: () => void;
   onUnforced: () => void;
 }) {
@@ -1326,6 +1317,14 @@ function TeamPanel({
             </span>
           </div>
         </div>
+        {serving && (
+          <span
+            className="animate-pulse flex items-center gap-1 rounded-full bg-black/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest"
+            style={{ color: inkVar }}
+          >
+            🎾 Serving
+          </span>
+        )}
       </div>
 
       <div className="relative flex items-end justify-between gap-3">
