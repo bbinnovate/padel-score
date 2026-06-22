@@ -21,8 +21,8 @@ export interface MatchRecord {
   playerCode: string;
   completedAt: Date;
   winner: "A" | "B";
-  teamA: { name: string; players: [string, string] };
-  teamB: { name: string; players: [string, string] };
+  teamA: { name: string; players: [string, string]; playerLevels?: [string, string] };
+  teamB: { name: string; players: [string, string]; playerLevels?: [string, string] };
   sets: [number, number][];
   setsWon: { A: number; B: number };
   unforced: { A: number; B: number };
@@ -41,8 +41,8 @@ interface RawRecord {
   playerCode: string;
   completedAt: Timestamp;
   winner: "A" | "B";
-  teamA: { name: string; players: [string, string] };
-  teamB: { name: string; players: [string, string] };
+  teamA: { name: string; players: [string, string]; playerLevels?: [string, string] };
+  teamB: { name: string; players: [string, string]; playerLevels?: [string, string] };
   sets: SetScore[];
   setsWon: { A: number; B: number };
   unforced: { A: number; B: number };

@@ -3,10 +3,10 @@
 export type TeamId = "A" | "B";
 
 export interface MatchConfig {
-  teamA: { name: string; players: [string, string] };
-  teamB: { name: string; players: [string, string] };
+  teamA: { name: string; players: [string, string]; playerLevels?: [string, string] };
+  teamB: { name: string; players: [string, string]; playerLevels?: [string, string] };
   bestOf: 1 | 3 | 5;
-  goldenPoint: boolean; // if true, no advantage — sudden death at deuce
+  goldenPoint: boolean;
 }
 
 export interface Snapshot {
@@ -18,6 +18,8 @@ export interface Snapshot {
   sets: Array<[number, number]>;
   // sets won
   setsWon: { A: number; B: number };
+  // cumulative rally points won across the entire match (absent in pre-v2 snapshots)
+  pointsWon?: { A: number; B: number };
   unforced: { A: number; B: number };
   inTiebreak: boolean;
   matchOver: boolean;
@@ -29,6 +31,7 @@ export const initialSnapshot = (): Snapshot => ({
   games: { A: 0, B: 0 },
   sets: [],
   setsWon: { A: 0, B: 0 },
+  pointsWon: { A: 0, B: 0 },
   unforced: { A: 0, B: 0 },
   inTiebreak: false,
   matchOver: false,
@@ -62,9 +65,10 @@ export function awardPoint(prev: Snapshot, team: TeamId, cfg: MatchConfig): Snap
     games: { ...prev.games },
     sets: [...prev.sets],
     setsWon: { ...prev.setsWon },
+    pointsWon: { A: prev.pointsWon?.A ?? 0, B: prev.pointsWon?.B ?? 0 },
     unforced: { ...prev.unforced },
   };
-  const other: TeamId = team === "A" ? "B" : "A";
+  s.pointsWon![team] += 1;
 
   if (s.inTiebreak) {
     s.points[team] += 1;
@@ -135,6 +139,14 @@ function finalizeSet(s: Snapshot, cfg: MatchConfig) {
   }
 }
 
+export function canAddUnforced(s: Snapshot, team: TeamId): boolean {
+  const opponent: TeamId = team === "A" ? "B" : "A";
+  // pointsWon absent in snapshots from before this field was added — allow freely
+  if (!s.pointsWon) return true;
+  return s.unforced[team] < s.pointsWon[opponent];
+}
+
 export function addUnforced(prev: Snapshot, team: TeamId): Snapshot {
+  if (!canAddUnforced(prev, team)) return prev;
   return { ...prev, unforced: { ...prev.unforced, [team]: prev.unforced[team] + 1 } };
 }

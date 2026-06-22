@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, useCallback } from "react"; // useCallbac
 import confetti from "canvas-confetti";
 import {
   addUnforced,
+  canAddUnforced,
   awardPoint,
   initialSnapshot,
   pointDisplay,
@@ -168,6 +169,7 @@ export default function Home() {
 
   const onPoint = (team: TeamId) => {
     if (!cfg) return;
+    // Compute next state outside the updater so side-effects run exactly once
     setHistory((h) => {
       const prev = h[h.length - 1];
       const next = awardPoint(prev, team, cfg);
@@ -187,20 +189,26 @@ export default function Home() {
         return t;
       });
 
-      if (speakerOn) speakScore(next, cfg, team);
+      // Use setTimeout(0) to escape the updater — React Strict Mode calls
+      // updaters twice in dev which would double-fire speech and haptics
+      const _next = next;
+      const _prev = prev;
+      setTimeout(() => {
+        if (speakerOn) speakScore(_next, cfg, team, _prev);
+        if (_next.matchOver) {
+          haptic([60, 40, 60, 40, 200]);
+          celebrateMatch(_next.winner ?? team);
+          setTimeout(() => setScreen("summary"), 1500);
+        } else if (_next.sets.length > _prev.sets.length) {
+          haptic([40, 30, 80]);
+          celebrateSet(team);
+        } else if (_next.games.A > _prev.games.A || _next.games.B > _prev.games.B) {
+          haptic([20, 30, 40]);
+        } else {
+          haptic(25);
+        }
+      }, 0);
 
-      if (next.matchOver) {
-        haptic([60, 40, 60, 40, 200]);
-        celebrateMatch(next.winner ?? team);
-        setTimeout(() => setScreen("summary"), 1500);
-      } else if (next.sets.length > prev.sets.length) {
-        haptic([40, 30, 80]);
-        celebrateSet(team);
-      } else if (next.games.A > prev.games.A || next.games.B > prev.games.B) {
-        haptic([20, 30, 40]);
-      } else {
-        haptic(25);
-      }
       return [...h, next];
     });
   };
@@ -451,26 +459,64 @@ function InstallModal() {
 
 /* -------------------- Voice -------------------- */
 
-function speakScore(s: Snapshot, cfg: MatchConfig, scorer: TeamId) {
+const PT = ["love", "fifteen", "thirty", "forty"] as const;
+const GM = ["love", "one", "two", "three", "four", "five", "six", "seven"] as const;
+const gw = (n: number) => GM[n] ?? String(n);
+const SET_ORD = ["first", "second", "third", "fourth", "fifth"] as const;
+
+function speakScore(s: Snapshot, cfg: MatchConfig, scorer: TeamId, prev: Snapshot) {
   if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
-  const teamLabel = scorer === "A" ? cfg.teamA.name : cfg.teamB.name;
+
+  const nameA = cfg.teamA.name;
+  const nameB = cfg.teamB.name;
+  const scorerName = scorer === "A" ? nameA : nameB;
   let phrase = "";
+
   if (s.matchOver) {
-    const winner = s.winner === "A" ? cfg.teamA.name : cfg.teamB.name;
-    phrase = `Game, set and match. ${winner} wins.`;
-  } else {
-    const disp = pointDisplay(s);
-    if (s.inTiebreak) {
-      phrase = `${teamLabel} scores. Tiebreak ${disp.A} ${disp.B}.`;
-    } else if (s.points.A === 0 && s.points.B === 0) {
-      phrase = `Game ${teamLabel}. ${s.games.A} ${s.games.B}.`;
+    const winner = s.winner === "A" ? nameA : nameB;
+    const lastSet = s.sets[s.sets.length - 1];
+    phrase = `Game, set and match, ${winner}. ${gw(lastSet[0])} games to ${gw(lastSet[1])}.`;
+  } else if (s.inTiebreak && prev.inTiebreak) {
+    // Mid-tiebreak — scorer's count first
+    const my = scorer === "A" ? s.points.A : s.points.B;
+    const their = scorer === "A" ? s.points.B : s.points.A;
+    phrase = my === their ? `${my} all.` : `${my} ${their}.`;
+  } else if (s.points.A === 0 && s.points.B === 0 && !s.inTiebreak) {
+    // A set or game just finished
+    const setJustWon = s.sets.length > prev.sets.length;
+    if (setJustWon) {
+      const setNum = prev.sets.length; // 0-indexed set that just finished
+      const wonSet = prev.sets[setNum] ?? s.sets[s.sets.length - 1];
+      const ord = SET_ORD[setNum] ?? `set ${setNum + 1}`;
+      phrase = `Game and ${ord} set, ${scorerName}. ${gw(wonSet[0])} games to ${gw(wonSet[1])}.`;
     } else {
-      const said = (v: string) => (v === "0" ? "love" : v === "AD" ? "advantage" : v);
-      phrase = `${teamLabel}, ${said(scorer === "A" ? disp.A : disp.B)} ${said(
-        scorer === "A" ? disp.B : disp.A,
-      )}`;
+      // Game won within a set
+      const gA = s.games.A;
+      const gB = s.games.B;
+      phrase =
+        gA === gB
+          ? `Game, ${scorerName}. ${gw(gA)} all.`
+          : `Game, ${scorerName}. ${gw(gA)} ${gw(gB)}.`;
+    }
+  } else if (!s.inTiebreak) {
+    const { A, B } = s.points;
+    if (A >= 3 && B >= 3) {
+      if (A === B) {
+        phrase = "Deuce.";
+      } else {
+        const advName = A > B ? nameA : nameB;
+        phrase = `Advantage ${advName}.`;
+      }
+    } else {
+      const my = scorer === "A" ? A : B;
+      const their = scorer === "A" ? B : A;
+      const myW = PT[Math.min(my, 3)];
+      const theirW = PT[Math.min(their, 3)];
+      phrase = my === their ? `${myW} all.` : `${myW} ${theirW}.`;
     }
   }
+
+  if (!phrase) return;
   try {
     window.speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(phrase);
@@ -766,9 +812,30 @@ function HistoryView({
               </div>
             </div>
             {(r.teamA.players.some(Boolean) || r.teamB.players.some(Boolean)) && (
-              <p className="mt-2 text-xs text-muted-foreground">
-                {[...r.teamA.players, ...r.teamB.players].filter(Boolean).join(" · ")}
-              </p>
+              <div className="mt-2 flex flex-col gap-0.5">
+                {(["A", "B"] as const).map((t) => {
+                  const team = t === "A" ? r.teamA : r.teamB;
+                  const players = team.players.filter(Boolean);
+                  if (!players.length) return null;
+                  return (
+                    <p key={t} className="text-xs text-muted-foreground">
+                      {team.players.map((name, i) =>
+                        name ? (
+                          <span key={i}>
+                            {i > 0 && <span className="mx-1 opacity-40">·</span>}
+                            {name}
+                            {team.playerLevels?.[i] && (
+                              <span className="ml-1 text-[10px] opacity-60">
+                                {"★".repeat(parseInt(team.playerLevels[i]))}
+                              </span>
+                            )}
+                          </span>
+                        ) : null,
+                      )}
+                    </p>
+                  );
+                })}
+              </div>
             )}
             <div className="mt-2 flex gap-4 text-[10px] uppercase tracking-widest text-muted-foreground">
               <span>
@@ -986,7 +1053,7 @@ function MatchView({
           setsWon={snapshot.setsWon.A}
           unforced={snapshot.unforced.A}
           disabled={snapshot.matchOver}
-          unforcedDisabled={!matchStarted || snapshot.matchOver}
+          unforcedDisabled={!matchStarted || snapshot.matchOver || !canAddUnforced(snapshot, "A")}
           big={bigMode}
           onPoint={() => onPoint("A")}
           onUnforced={() => onUnforced("A")}
@@ -999,7 +1066,7 @@ function MatchView({
           setsWon={snapshot.setsWon.B}
           unforced={snapshot.unforced.B}
           disabled={snapshot.matchOver}
-          unforcedDisabled={!matchStarted || snapshot.matchOver}
+          unforcedDisabled={!matchStarted || snapshot.matchOver || !canAddUnforced(snapshot, "B")}
           big={bigMode}
           onPoint={() => onPoint("B")}
           onUnforced={() => onUnforced("B")}
@@ -1287,9 +1354,13 @@ function Summary({
   const [aName, setAName] = useState(cfg.teamA.name);
   const [a1, setA1] = useState(cfg.teamA.players[0]);
   const [a2, setA2] = useState(cfg.teamA.players[1]);
+  const [a1Level, setA1Level] = useState(cfg.teamA.playerLevels?.[0] ?? "");
+  const [a2Level, setA2Level] = useState(cfg.teamA.playerLevels?.[1] ?? "");
   const [bName, setBName] = useState(cfg.teamB.name);
   const [b1, setB1] = useState(cfg.teamB.players[0]);
   const [b2, setB2] = useState(cfg.teamB.players[1]);
+  const [b1Level, setB1Level] = useState(cfg.teamB.playerLevels?.[0] ?? "");
+  const [b2Level, setB2Level] = useState(cfg.teamB.playerLevels?.[1] ?? "");
   const [saving, setSaving] = useState(false);
   const [namesSaved, setNamesSaved] = useState(false);
   const [errors, setErrors] = useState({ aName: "", bName: "" });
@@ -1310,8 +1381,16 @@ function Summary({
     setSaving(true);
     await onSave({
       ...cfg,
-      teamA: { name: aName.trim(), players: [a1.trim(), a2.trim()] },
-      teamB: { name: bName.trim(), players: [b1.trim(), b2.trim()] },
+      teamA: {
+        name: aName.trim(),
+        players: [a1.trim(), a2.trim()],
+        playerLevels: [a1Level, a2Level],
+      },
+      teamB: {
+        name: bName.trim(),
+        players: [b1.trim(), b2.trim()],
+        playerLevels: [b1Level, b2Level],
+      },
     });
     setSaving(false);
     setNamesSaved(true);
@@ -1388,6 +1467,10 @@ function Summary({
         p2={a2}
         onP1={setA1}
         onP2={setA2}
+        p1Level={a1Level}
+        p2Level={a2Level}
+        onP1Level={setA1Level}
+        onP2Level={setA2Level}
         error={errors.aName}
       />
       <NameCard
@@ -1402,6 +1485,10 @@ function Summary({
         p2={b2}
         onP1={setB1}
         onP2={setB2}
+        p1Level={b1Level}
+        p2Level={b2Level}
+        onP1Level={setB1Level}
+        onP2Level={setB2Level}
         error={errors.bName}
       />
 
@@ -1424,6 +1511,30 @@ function Summary({
   );
 }
 
+const SKILL_LABELS = ["Beginner", "Casual", "Intermediate", "Advanced", "Pro"] as const;
+
+function LevelPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const selected = value ? parseInt(value) : 0;
+  const label = selected ? SKILL_LABELS[selected - 1] : null;
+  return (
+    <div className="mt-1.5 flex items-center gap-2">
+      <div className="flex gap-1">
+        {[1, 2, 3, 4, 5].map((n) => (
+          <button
+            key={n}
+            type="button"
+            onClick={() => onChange(selected === n ? "" : String(n))}
+            className="flex h-10 w-10 items-center justify-center text-2xl transition-transform active:scale-90"
+          >
+            <span className={n <= selected ? "opacity-100" : "opacity-20"}>★</span>
+          </button>
+        ))}
+      </div>
+      {label && <span className="text-xs font-semibold text-muted-foreground">{label}</span>}
+    </div>
+  );
+}
+
 function NameCard({
   accent,
   title,
@@ -1433,6 +1544,10 @@ function NameCard({
   p2,
   onP1,
   onP2,
+  p1Level,
+  p2Level,
+  onP1Level,
+  onP2Level,
   error,
 }: {
   accent: "team-a" | "team-b";
@@ -1443,6 +1558,10 @@ function NameCard({
   p2: string;
   onP1: (v: string) => void;
   onP2: (v: string) => void;
+  p1Level: string;
+  p2Level: string;
+  onP1Level: (v: string) => void;
+  onP2Level: (v: string) => void;
   error?: string;
 }) {
   return (
@@ -1470,19 +1589,23 @@ function NameCard({
         placeholder="Team name"
         className="w-full rounded-xl bg-muted px-4 py-3 text-base font-semibold outline-none focus:ring-2 focus:ring-primary"
       />
-      <div className="mt-2 grid grid-cols-2 gap-2">
-        <input
-          value={p1}
-          onChange={(e) => onP1(e.target.value)}
-          placeholder="Player 1"
-          className="rounded-xl bg-muted px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary"
-        />
-        <input
-          value={p2}
-          onChange={(e) => onP2(e.target.value)}
-          placeholder="Player 2"
-          className="rounded-xl bg-muted px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary"
-        />
+      <div className="mt-2 flex flex-col gap-3">
+        {(
+          [
+            { val: p1, onVal: onP1, level: p1Level, onLevel: onP1Level, ph: "Player 1" },
+            { val: p2, onVal: onP2, level: p2Level, onLevel: onP2Level, ph: "Player 2" },
+          ] as const
+        ).map(({ val, onVal, level, onLevel, ph }) => (
+          <div key={ph} className="rounded-xl bg-muted px-3 pt-2.5 pb-1">
+            <input
+              value={val}
+              onChange={(e) => onVal(e.target.value)}
+              placeholder={ph}
+              className="w-full bg-transparent text-sm outline-none"
+            />
+            <LevelPicker value={level} onChange={onLevel} />
+          </div>
+        ))}
       </div>
     </div>
   );
