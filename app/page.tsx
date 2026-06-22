@@ -789,63 +789,99 @@ function HistoryView({
         const winnerColor = r.winner === "A" ? "var(--team-a)" : "var(--team-b-ink)";
         return (
           <div key={r.id} className="rounded-2xl bg-card p-4 ring-1 ring-border">
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                  {fmtDate(r.completedAt)} · {fmtElapsed(r.totalMs)} · Best of {r.bestOf}
+            {/* Top meta row */}
+            <p className="mb-3 text-[10px] uppercase tracking-widest text-muted-foreground">
+              {fmtDate(r.completedAt)} · {fmtElapsed(r.totalMs)} · Best of {r.bestOf}
+            </p>
+
+            {/* 50/50 split */}
+            <div className="flex items-stretch gap-0">
+              {/* Team A */}
+              <div className="flex flex-1 flex-col">
+                <p className="text-sm font-bold" style={{ color: "var(--team-a)" }}>
+                  {r.teamA.name}
+                  {r.winner === "A" && (
+                    <span className="ml-1 text-[10px] font-semibold">👑 Wins</span>
+                  )}
                 </p>
-                <p className="mt-0.5 text-base font-bold" style={{ color: winnerColor }}>
-                  {winnerName} wins
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  {r.teamA.name} vs {r.teamB.name}
+                <div
+                  className="score-num mt-0.5 text-xl font-bold"
+                  style={{ color: "var(--team-a)" }}
+                >
+                  {r.sets.map(([a], i) => (
+                    <span key={i} className="mr-1">
+                      {a}
+                    </span>
+                  ))}
+                </div>
+                {r.teamA.players.some(Boolean) && (
+                  <div className="mt-1.5 flex flex-col gap-0.5">
+                    {r.teamA.players.map((name, i) =>
+                      name ? (
+                        <div key={i} className="flex items-center gap-1">
+                          <span className="text-xs text-muted-foreground">{name}</span>
+                          {r.teamA.playerLevels?.[i] && (
+                            <span className="text-[10px] text-amber-400">
+                              {"★".repeat(parseInt(r.teamA.playerLevels[i]))}
+                            </span>
+                          )}
+                        </div>
+                      ) : null,
+                    )}
+                  </div>
+                )}
+                <p className="mt-auto pt-2 text-[10px] uppercase tracking-widest text-muted-foreground">
+                  UE <span className="font-bold text-foreground">{r.unforced.A}</span>
                 </p>
               </div>
-              <div className="score-num text-base tabular flex gap-2">
-                {r.sets.map(([a, b], i) => (
-                  <span key={i}>
-                    <span style={{ color: "var(--team-a)" }}>{a}</span>
-                    <span className="text-muted-foreground">-</span>
-                    <span style={{ color: "var(--team-b-ink)" }}>{b}</span>
-                  </span>
-                ))}
+
+              {/* VS divider */}
+              <div className="flex flex-col items-center justify-center px-3">
+                <div className="h-full w-px bg-border" />
+                <span className="my-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                  vs
+                </span>
+                <div className="h-full w-px bg-border" />
               </div>
-            </div>
-            {(r.teamA.players.some(Boolean) || r.teamB.players.some(Boolean)) && (
-              <div className="mt-2 flex flex-col gap-0.5">
-                {(["A", "B"] as const).map((t) => {
-                  const team = t === "A" ? r.teamA : r.teamB;
-                  const players = team.players.filter(Boolean);
-                  if (!players.length) return null;
-                  return (
-                    <p key={t} className="text-xs text-muted-foreground">
-                      {team.players.map((name, i) =>
-                        name ? (
-                          <span key={i}>
-                            {i > 0 && <span className="mx-1 opacity-40">·</span>}
-                            {name}
-                            {team.playerLevels?.[i] && (
-                              <span className="ml-1 text-[10px] opacity-60">
-                                {"★".repeat(parseInt(team.playerLevels[i]))}
-                              </span>
-                            )}
-                          </span>
-                        ) : null,
-                      )}
-                    </p>
-                  );
-                })}
+
+              {/* Team B */}
+              <div className="flex flex-1 flex-col items-end">
+                <p className="text-sm font-bold" style={{ color: "var(--team-b-ink)" }}>
+                  {r.winner === "B" && (
+                    <span className="mr-1 text-[10px] font-semibold">👑 Wins</span>
+                  )}
+                  {r.teamB.name}
+                </p>
+                <div
+                  className="score-num mt-0.5 text-xl font-bold"
+                  style={{ color: "var(--team-b-ink)" }}
+                >
+                  {r.sets.map(([, b], i) => (
+                    <span key={i} className="ml-1">
+                      {b}
+                    </span>
+                  ))}
+                </div>
+                {r.teamB.players.some(Boolean) && (
+                  <div className="mt-1.5 flex flex-col items-end gap-0.5">
+                    {r.teamB.players.map((name, i) =>
+                      name ? (
+                        <div key={i} className="flex items-center gap-1">
+                          {r.teamB.playerLevels?.[i] && (
+                            <span className="text-[10px] text-amber-400">
+                              {"★".repeat(parseInt(r.teamB.playerLevels[i]))}
+                            </span>
+                          )}
+                          <span className="text-xs text-muted-foreground">{name}</span>
+                        </div>
+                      ) : null,
+                    )}
+                  </div>
+                )}
+                <p className="mt-auto pt-2 text-[10px] uppercase tracking-widest text-muted-foreground">
+                  UE <span className="font-bold text-foreground">{r.unforced.B}</span>
+                </p>
               </div>
-            )}
-            <div className="mt-2 flex gap-4 text-[10px] uppercase tracking-widest text-muted-foreground">
-              <span>
-                Unforced <span style={{ color: "var(--team-a)" }}>{r.teamA.name}</span>:{" "}
-                {r.unforced.A}
-              </span>
-              <span>
-                Unforced <span style={{ color: "var(--team-b-ink)" }}>{r.teamB.name}</span>:{" "}
-                {r.unforced.B}
-              </span>
             </div>
           </div>
         );
@@ -1496,9 +1532,9 @@ function Summary({
         <button
           onClick={save}
           disabled={saving}
-          className="flex-1 rounded-2xl bg-muted py-4 text-sm font-bold text-foreground disabled:opacity-60"
+          className="flex-1 rounded-2xl bg-accent py-4 text-sm font-bold text-accent-foreground disabled:opacity-60"
         >
-          {saving ? "Saving…" : namesSaved ? "Names saved" : "Save names"}
+          {saving ? "Saving…" : namesSaved ? "Saved ✓" : "Save players"}
         </button>
         <button
           onClick={onNew}
