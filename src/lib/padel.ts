@@ -12,9 +12,8 @@ export interface MatchConfig {
 
 /** Returns which team is currently serving based on total games completed. */
 export function currentServer(cfg: MatchConfig, s: Snapshot): TeamId {
-  const totalGames =
-    s.sets.reduce((sum, [a, b]) => sum + a + b, 0) + s.games.A + s.games.B;
-  return totalGames % 2 === 0 ? cfg.initialServer : (cfg.initialServer === "A" ? "B" : "A");
+  const totalGames = s.sets.reduce((sum, [a, b]) => sum + a + b, 0) + s.games.A + s.games.B;
+  return totalGames % 2 === 0 ? cfg.initialServer : cfg.initialServer === "A" ? "B" : "A";
 }
 
 export interface Snapshot {
